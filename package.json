@@ -1,0 +1,12 @@
+{
+  "name": "spotify-share-render",
+  "version": "1.0.0",
+  "description": "Website bagi-bagi akun Spotify dengan Render Secret Files",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
