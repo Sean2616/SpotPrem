@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpotPrem - Bagi-Bagi Akun Spotify Premium Gratis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        spotify: '#1DB954',
+                        spotifyDark: '#121212',
+                        spotifyCard: '#181818',
+                        spotifyHover: '#242424'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-spotifyDark text-white min-h-screen font-sans">
+
+    <!-- Navbar -->
+    <nav class="bg-black/90 backdrop-blur border-b border-zinc-800 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full bg-spotify flex items-center justify-center text-black font-bold text-lg">♫</div>
+                <h1 class="text-xl font-bold tracking-tight text-white">Spot<span class="text-spotify">Prem</span></h1>
+            </div>
+            <span class="text-xs bg-spotify/20 text-spotify border border-spotify/30 px-3 py-1 rounded-full font-medium">
+                Khusus Akun Premium
+            </span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="max-w-5xl mx-auto px-4 pt-12 pb-8 text-center">
+        <span class="text-xs uppercase tracking-widest text-spotify font-bold mb-2 block">Update Akun Harian</span>
+        <h2 class="text-3xl md:text-5xl font-extrabold mb-4">
+            Bagi-Bagi Akun <span class="text-spotify">Spotify Premium</span> Gratis
+        </h2>
+        <p class="text-zinc-400 max-w-xl mx-auto text-sm md:text-base mb-6">
+            Silakan gunakan akun di bawah ini untuk mendengarkan musik tanpa iklan, dan download lagu agar bisa diputar offline. Pilih akun yang berstatus <span class="text-spotify font-semibold">Aktif</span>.
+        </p>
+        <div class="max-w-lg mx-auto bg-zinc-900/80 border border-zinc-800 rounded-xl p-3.5 text-xs text-zinc-300 flex items-center justify-center gap-2">
+            <span class="text-spotify text-base">⚠️</span>
+            <span><b>Peraturan:</b> Harap mengganti password atau profil agar akun tidak digunakan bersama. Jika akun tidak bisa digunakan, tandanya password sudah diganti.</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-5xl mx-auto px-4 pb-16">
+        <div id="account-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-spotify text-black font-semibold px-4 py-2.5 rounded-full shadow-lg transform translate-y-20 opacity-0 transition-all duration-300">
+        Berhasil disalin!
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-zinc-800 bg-black py-6 text-center text-zinc-500 text-xs">
+        <p>&copy; 2026 SpotifyShare. Website pembagian akun komunitas.</p>
+    </footer>
+
+    <!-- Memanggil File Data Akun -->
+    <script src="data-akun.js"></script>
+
+    <!-- Script Render Website -->
+    <script>
+        const container = document.getElementById('account-list');
+
+        function renderAccounts() {
+            container.innerHTML = '';
+            if (typeof accounts === 'undefined' || accounts.length === 0) {
+                container.innerHTML = '<p class="text-zinc-500 col-span-3 text-center">Belum ada akun yang tersedia saat ini.</p>';
+                return;
+            }
+
+            accounts.forEach((item, index) => {
+                const badgeColor = item.available 
+                    ? 'bg-spotify/20 text-spotify border-spotify/30' 
+                    : 'bg-red-500/20 text-red-400 border-red-500/30';
+
+                const card = document.createElement('div');
+                card.className = "bg-spotifyCard border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between hover:bg-spotifyHover hover:border-spotify/50 transition duration-200";
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-semibold text-zinc-400">${item.region}</span>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full border font-medium ${badgeColor}">${item.status}</span>
+                        </div>
+                        <h3 class="text-lg font-bold mb-1 text-white">${item.plan}</h3>
+                        <p class="text-xs text-zinc-500 mb-5">Diperbarui: ${item.updatedAt}</p>
+                    </div>
+
+                    <div>
+                        <div class="bg-black/60 border border-zinc-800 rounded-lg p-2.5 mb-2.5">
+                            <span class="text-[10px] uppercase tracking-wider text-zinc-500 block">Email Akun</span>
+                            <div class="flex justify-between items-center mt-0.5">
+                                <span class="font-mono text-xs text-zinc-200 truncate pr-2">
+                                    ${item.available ? item.email : '••••••••••••••••••••'}
+                                </span>
+                                ${item.available ? `
+                                    <button onclick="copyText('${item.email}', 'Email berhasil disalin!')" class="text-xs text-spotify hover:underline shrink-0 font-medium">Salin</button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div class="bg-black/60 border border-zinc-800 rounded-lg p-2.5 mb-4">
+                            <span class="text-[10px] uppercase tracking-wider text-zinc-500 block">Password Akun</span>
+                            <div class="flex justify-between items-center mt-0.5">
+                                <span id="pass-${index}" class="font-mono text-xs text-zinc-200">
+                                    ${item.available ? '••••••••••••' : 'TIDAK TERSEDIA'}
+                                </span>
+                                ${item.available ? `
+                                    <div class="flex gap-2">
+                                        <button onclick="revealPassword(${index}, '${item.password}')" class="text-xs text-zinc-400 hover:text-white">Lihat</button>
+                                        <button onclick="copyText('${item.password}', 'Password berhasil disalin!')" class="text-xs text-spotify hover:underline font-medium">Salin</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <button 
+                            onclick="copyText('${item.email}:${item.password}', 'Email & Password disalin!')" 
+                            ${!item.available ? 'disabled' : ''}
+                            class="w-full py-2.5 rounded-full font-bold text-sm transition ${
+                                item.available 
+                                ? 'bg-spotify hover:bg-emerald-400 text-black cursor-pointer shadow-md shadow-spotify/10' 
+                                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                            }">
+                            ${item.available ? 'Salin Email & Password' : 'Akun Penuh / Habis'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function revealPassword(index, realPassword) {
+            document.getElementById(`pass-${index}`).textContent = realPassword;
+        }
+
+        function copyText(text, message) {
+            navigator.clipboard.writeText(text).then(() => {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 2500);
+            });
+        }
+
+        renderAccounts();
+    </script>
+</body>
+</html>
