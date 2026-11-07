@@ -293,6 +293,7 @@
                     </span>
                 </div>
                 <p class="text-sm text-spotifyGray clamp2 mb-4">${item.region} • Diperbarui: ${item.updatedAt}</p>
+                ${item.available ? `<div class="copystat hidden mb-4 -mt-2" data-email="${item.email}"></div>` : ''}
 
                 <div class="mt-auto">
                     <div class="bg-black/50 rounded-md p-3 mb-2">
@@ -336,6 +337,7 @@
             `;
             container.appendChild(card);
         });
+        paintCopyStats();
     }
 
     function updateCounts(total, active, shown) {
@@ -347,9 +349,64 @@
         set('result-count', shown !== total ? 'Menampilkan ' + shown + ' dari ' + total + ' akun' : total + ' akun');
     }
 
+    /* ---------- Lencana "sudah disalin" (data publik dari server) ---------- */
+    let copyStats = {};
+    function relTime(iso) {
+        const d = Date.parse(iso);
+        if (!d) return '';
+        const s = Math.max(0, Math.floor((Date.now() - d) / 1000));
+        if (s < 60) return 'baru saja';
+        const m = Math.floor(s / 60);
+        if (m < 60) return m + ' mnt lalu';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + ' jam lalu';
+        const dd = Math.floor(h / 24);
+        if (dd < 30) return dd + ' hari lalu';
+        return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    function paintCopyStats() {
+        document.querySelectorAll('.copystat').forEach(el => {
+            const st = copyStats[el.getAttribute('data-email')];
+            if (st && st.copies > 0) {
+                el.innerHTML = '<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-400/10 border border-amber-300/30 px-2.5 py-1 rounded-full">⚠️ Sudah disalin ' + st.copies + '× • terakhir ' + relTime(st.last) + '</span>';
+                el.classList.remove('hidden');
+            } else if (st && st.views > 0) {
+                el.innerHTML = '<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-zinc-300 bg-white/5 border border-white/15 px-2.5 py-1 rounded-full">👁 Password sudah dilihat ' + st.views + '× • terakhir ' + relTime(st.lastView) + '</span>';
+                el.classList.remove('hidden');
+            } else {
+                el.innerHTML = '';
+                el.classList.add('hidden');
+            }
+        });
+    }
+    async function loadCopyStats() {
+        try {
+            const res = await fetch('/api/copystats', { cache: 'no-store' });
+            if (!res.ok) return;
+            const j = await res.json();
+            copyStats = j.stats || {};
+            paintCopyStats();
+        } catch (e) {}
+    }
+
+    function trackCopy(item, kind) {
+        // Catat aktivitas salin/lihat ke server (tidak menghalangi proses salin;
+        // kegagalan mencatat diabaikan diam-diam).
+        try {
+            const payload = JSON.stringify({ email: item.email || '', plan: item.plan || '', kind: kind });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
+            } else if (window.fetch) {
+                fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(() => {});
+            }
+        } catch (e) {}
+        setTimeout(loadCopyStats, 1000);
+    }
+
     function copyByIndex(index, kind) {
         const item = (typeof accounts !== 'undefined') ? accounts[index] : null;
         if (!item || !item.available) return;
+        trackCopy(item, kind);
         if (kind === 'email') copyText(item.email, 'Email berhasil disalin!');
         else if (kind === 'password') copyText(item.password, 'Password berhasil disalin!');
         else copyText(item.email + ':' + item.password, 'Email & Password disalin!');
@@ -358,6 +415,7 @@
     function revealPassword(index, realPassword) {
         const item = (typeof accounts !== 'undefined') ? accounts[index] : null;
         const el = document.getElementById(`pass-${index}`);
+        if (item && item.available) trackCopy(item, 'reveal');
         if (el) el.textContent = realPassword || (item ? item.password : '');
     }
 
@@ -391,6 +449,7 @@
     }
 
     renderAccounts();
+    loadCopyStats();
 </script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 // ============================================================
-// SpotPrem — server online v2: penyimpanan Firebase (GRATIS)
+// SpotPrem — server online v3: Firebase + catatan aktivitas salin
+// (POST /api/track publik mencatat salin/lihat password dari situs;
+//  GET/DELETE /api/activity hanya untuk admin yang login.)
 // Sama seperti server.js v1 (login admin, API akun, data-akun.js
 // dinamis), tetapi data akun disimpan di Firebase Realtime
 // Database sehingga TIDAK hilang saat server Render restart /
@@ -37,6 +39,7 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const FIREBASE_DB_URL = String(process.env.FIREBASE_DB_URL || '').replace(/\/+$/, '');
 const FIREBASE_PATH = String(process.env.FIREBASE_PATH || 'spotprem/accounts').replace(/^\/+|\/+$/g, '');
 const FIREBASE_SECRET = process.env.FIREBASE_SECRET || '';
+const FIREBASE_ACTIVITY_PATH = FIREBASE_PATH.replace(/[^/]+$/, 'activity');
 const USE_FIREBASE = !!FIREBASE_DB_URL;
 
 if (!process.env.ADMIN_PASSWORD) {
@@ -75,15 +78,15 @@ function loadAccountsFromFile() {
 }
 
 /* ---------------- Mode Firebase (REST) ---------------- */
-function firebaseUrl() {
-  const base = FIREBASE_DB_URL + '/' + FIREBASE_PATH + '.json';
+function firebaseUrl(p) {
+  const base = FIREBASE_DB_URL + '/' + (p || FIREBASE_PATH) + '.json';
   return FIREBASE_SECRET ? base + '?auth=' + encodeURIComponent(FIREBASE_SECRET) : base;
 }
-async function firebaseFetch(method, body) {
+async function firebaseFetch(method, body, p) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const res = await fetch(firebaseUrl(), {
+    const res = await fetch(firebaseUrl(p), {
       method,
       signal: ctrl.signal,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -105,10 +108,47 @@ async function loadAccountsFromFirebase() {
   return null; // belum ada data
 }
 
+/* ---------------- Penyimpanan aktivitas salin ---------------- */
+const ACTIVITY_FILE = path.join(path.dirname(DATA_FILE), 'activity.json');
+const ACTIVITY_MAX = 500;
+let activity = [];
+function loadActivityFromFile() {
+  try {
+    if (fs.existsSync(ACTIVITY_FILE)) {
+      const a = JSON.parse(fs.readFileSync(ACTIVITY_FILE, 'utf8'));
+      if (Array.isArray(a)) return a.slice(-ACTIVITY_MAX);
+    }
+  } catch (e) { console.error('[SpotPrem] gagal membaca activity.json:', e.message); }
+  return [];
+}
+function saveActivityToFile() {
+  fs.mkdirSync(path.dirname(ACTIVITY_FILE), { recursive: true });
+  const tmp = ACTIVITY_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(activity));
+  fs.renameSync(tmp, ACTIVITY_FILE);
+}
+async function loadActivityFromFirebase() {
+  const data = await firebaseFetch('GET', null, FIREBASE_ACTIVITY_PATH);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const keys = Object.keys(data).sort((a, b) => Number(a) - Number(b));
+    if (keys.length && keys.every(k => /^\d+$/.test(k))) return keys.map(k => data[k]);
+  }
+  return null;
+}
+async function persistActivity() {
+  if (USE_FIREBASE) { await firebaseFetch('PUT', activity, FIREBASE_ACTIVITY_PATH); return; }
+  saveActivityToFile();
+}
+async function refreshActivity() {
+  if (!USE_FIREBASE) return;
+  try { const r = await loadActivityFromFirebase(); if (r) activity = r; } catch (e) {}
+}
+
 /* ---------------- Penyimpanan aktif ---------------- */
 let accounts = [];
 async function initStore() {
-  if (!USE_FIREBASE) { accounts = loadAccountsFromFile(); return; }
+  if (!USE_FIREBASE) { accounts = loadAccountsFromFile(); activity = loadActivityFromFile(); return; }
   try {
     const remote = await loadAccountsFromFirebase();
     if (remote) {
@@ -124,6 +164,11 @@ async function initStore() {
     console.error('[SpotPrem] Server tetap jalan dengan data seed di memori; simpanan akan error sampai Firebase bisa dihubungi.');
     accounts = seedFromFile();
   }
+  try {
+    const ra = await loadActivityFromFirebase();
+    activity = Array.isArray(ra) ? ra.slice(-ACTIVITY_MAX) : [];
+    console.log('[SpotPrem] aktivitas dimuat dari Firebase:', activity.length, 'catatan');
+  } catch (e) { activity = []; }
 }
 async function persistAccounts(list) {
   if (USE_FIREBASE) { await firebaseFetch('PUT', list); return; }
@@ -239,13 +284,64 @@ app.put('/api/accounts', requireAuth, async (req, res) => {
   res.json({ ok: true, count: accounts.length, active: accounts.filter(a => a.available).length });
 });
 
+/* ---------------- Aktivitas salin ----------------
+   Publik boleh MENCATAT (dari tombol salin/lihat di situs).
+   Membaca & membersihkan daftar hanya admin yang login. */
+const trackHits = new Map();
+app.post('/api/track', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const hits = (trackHits.get(ip) || []).filter(t => now - t < 60000);
+  if (hits.length >= 30) { trackHits.set(ip, hits); return res.status(204).end(); }
+  hits.push(now); trackHits.set(ip, hits);
+  const b = req.body || {};
+  const kind = ['email', 'password', 'both', 'reveal'].includes(b.kind) ? b.kind : null;
+  if (!kind) return res.status(400).json({ error: 'kind tidak valid' });
+  activity.push({
+    t: new Date().toISOString(),
+    email: String(b.email || '').slice(0, 200),
+    plan: String(b.plan || '').slice(0, 120),
+    kind,
+    ip: String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim().slice(0, 64),
+    ua: String(req.headers['user-agent'] || '').slice(0, 140),
+  });
+  if (activity.length > ACTIVITY_MAX) activity = activity.slice(-ACTIVITY_MAX);
+  try { await persistActivity(); } catch (e) { console.error('[SpotPrem] gagal menyimpan aktivitas:', e.message); }
+  res.status(204).end();
+});
+app.get('/api/activity', requireAuth, async (req, res) => {
+  await refreshActivity();
+  res.json({ total: activity.length, activity: activity.slice(-200).reverse() });
+});
+/* Ringkasan PUBLIK untuk lencana "sudah disalin" di kartu akun.
+   Hanya berisi jumlah salin/lihat + waktu terakhir per email —
+   TANPA alamat IP dan TANPA info perangkat. */
+let lastStatsRefresh = 0;
+app.get('/api/copystats', async (req, res) => {
+  if (USE_FIREBASE && Date.now() - lastStatsRefresh > 30000) { lastStatsRefresh = Date.now(); await refreshActivity(); }
+  const stats = {};
+  for (const e of activity) {
+    if (!e || !e.email) continue;
+    const st = stats[e.email] || (stats[e.email] = { copies: 0, views: 0, last: null, lastView: null });
+    if (e.kind === 'reveal') { st.views += 1; if (!st.lastView || e.t > st.lastView) st.lastView = e.t; }
+    else { st.copies += 1; if (!st.last || e.t > st.last) st.last = e.t; }
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ stats });
+});
+app.delete('/api/activity', requireAuth, async (req, res) => {
+  activity = [];
+  try { await persistActivity(); } catch (e) { return res.status(500).json({ error: 'Gagal membersihkan: ' + e.message.slice(0, 120) }); }
+  res.json({ ok: true });
+});
+
 app.get('/data-akun.js', (req, res) => {
   res.type('application/javascript');
   res.set('Cache-Control', 'no-store');
   res.send('const accounts = ' + JSON.stringify(accounts) + ';\n');
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true, accounts: accounts.length, storage: USE_FIREBASE ? 'firebase' : 'file' }));
+app.get('/api/health', (req, res) => res.json({ ok: true, accounts: accounts.length, activity: activity.length, storage: USE_FIREBASE ? 'firebase' : 'file' }));
 
 app.use(express.static(__dirname));
 

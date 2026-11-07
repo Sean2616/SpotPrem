@@ -69,6 +69,18 @@
     <!-- Daftar editor akun -->
     <div id="editor-list" class="space-y-4"></div>
     <p id="empty-editor" class="hidden text-center text-zinc-500 py-10 text-sm">Belum ada akun. Klik “＋ Tambah Akun” untuk mulai, lalu Simpan ke Server.</p>
+
+    <!-- Aktivitas salin -->
+    <div class="mt-10">
+      <div class="flex flex-wrap items-center gap-2 mb-1">
+        <h2 class="text-lg font-black tracking-tight mr-auto">📋 Aktivitas Salin <span id="activity-count" class="text-xs font-bold bg-white/10 px-2.5 py-1 rounded-full align-middle">0 catatan</span></h2>
+        <button onclick="loadActivity()" class="bg-[#2a2a2a] hover:bg-[#353535] text-xs font-bold px-4 py-2 rounded-full transition">↻ Muat Ulang</button>
+        <button onclick="clearActivity()" class="bg-[#2a2a2a] hover:bg-red-500/30 text-xs font-bold px-4 py-2 rounded-full transition">🗑 Bersihkan</button>
+      </div>
+      <p class="text-xs text-zinc-400 leading-relaxed mb-4">Catatan setiap pengunjung menyalin email / password / keduanya, atau menampilkan password, dari halaman utama — lengkap dengan waktu (WIB) dan alamat IP perangkatnya. Ini hanya mencatat klik di situs; membuka file data secara langsung tidak tercatat. IP bukan identitas pasti seseorang.</p>
+      <div id="activity-list" class="space-y-2"></div>
+      <p id="activity-empty" class="hidden text-center text-zinc-500 py-8 text-sm">Belum ada aktivitas salin tercatat.</p>
+    </div>
   </div>
 
   <!-- Bar aksi bawah -->
@@ -111,6 +123,7 @@
       document.getElementById('login-password').value = '';
       showPanel();
       await loadLive(false);
+      loadActivity();
     } catch (e) {
       err.textContent = e.message;
       err.classList.remove('hidden');
@@ -293,6 +306,44 @@
       btn.textContent = oldText;
     }
   }
+  /* ---------- Aktivitas salin ---------- */
+  const KIND_LABEL = { email: 'Salin Email', password: 'Salin Password', both: 'Salin Email + Password', reveal: 'Lihat Password' };
+  async function loadActivity() {
+    const list = document.getElementById('activity-list');
+    try {
+      const res = await fetch('/api/activity', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      const items = j.activity || [];
+      document.getElementById('activity-count').textContent = (j.total || items.length) + ' catatan';
+      document.getElementById('activity-empty').classList.toggle('hidden', items.length > 0);
+      list.innerHTML = '';
+      items.forEach(it => {
+        const when = new Date(it.t).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+        const row = document.createElement('div');
+        row.className = 'bg-spotifyDark rounded-lg px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm';
+        row.innerHTML = '<span class="font-bold text-spotify">' + esc(KIND_LABEL[it.kind] || it.kind || '-') + '</span>' +
+          '<span class="font-semibold">' + esc(it.email || '(tanpa email)') + '</span>' +
+          (it.plan ? '<span class="text-zinc-400 text-xs">' + esc(it.plan) + '</span>' : '') +
+          '<span class="ml-auto text-zinc-400 text-xs font-semibold">' + esc(when) + '</span>' +
+          (it.ip ? '<span class="text-zinc-500 text-xs">IP ' + esc(it.ip) + '</span>' : '');
+        list.appendChild(row);
+      });
+    } catch (e) {
+      document.getElementById('activity-empty').classList.remove('hidden');
+      document.getElementById('activity-empty').textContent = 'Gagal memuat aktivitas (' + e.message + '). Pastikan sudah login.';
+    }
+  }
+  async function clearActivity() {
+    if (!confirm('Bersihkan semua catatan aktivitas salin? Tindakan ini tidak bisa dibatalkan.')) return;
+    try {
+      const res = await fetch('/api/activity', { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      toast('Catatan aktivitas dibersihkan');
+      loadActivity();
+    } catch (e) { toast('Gagal membersihkan: ' + e.message); }
+  }
+
   function toast(message) {
     const t = document.getElementById('toast');
     t.textContent = message;
@@ -302,6 +353,7 @@
 
   // Kalau sesi login masih berlaku, panel langsung terbuka; kalau tidak, layar login tampil.
   loadLive(false);
+  loadActivity();
 </script>
 </body>
 </html>
