@@ -66,6 +66,10 @@
                     <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8" stroke-linecap="round"/></svg>
                     Cari Akun
                 </a>
+                <a href="player.html" class="flex items-center gap-4 text-spotifyGray hover:text-white transition">
+                    <svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+                    Pemutar Musik
+                </a>
             </nav>
         </div>
 
@@ -184,10 +188,11 @@
 
 <!-- Navigasi bawah (mobile, ala aplikasi Spotify) -->
 <nav class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-black/95 backdrop-blur border-t border-white/10">
-    <div class="grid grid-cols-3 text-[11px] font-semibold text-spotifyGray">
+    <div class="grid grid-cols-4 text-[11px] font-semibold text-spotifyGray">
         <a href="#beranda" class="flex flex-col items-center gap-1 py-2.5 text-white"><span class="text-lg leading-none">⌂</span>Beranda</a>
         <a href="#account-list" onclick="focusSearch(event)" class="flex flex-col items-center gap-1 py-2.5"><span class="text-lg leading-none">⌕</span>Cari Akun</a>
         <a href="#account-list" onclick="setFilter('active')" class="flex flex-col items-center gap-1 py-2.5"><span class="text-lg leading-none">♫</span>Akun Aktif</a>
+        <a href="player.html" class="flex flex-col items-center gap-1 py-2.5"><span class="text-lg leading-none">▶</span>Pemutar</a>
     </div>
 </nav>
 

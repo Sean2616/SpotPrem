@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemutar Musik - SpotPrem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        spotify: '#1ED760',
+                        spotifyDark: '#121212',
+                        spotifyCard: '#181818',
+                        spotifyHover: '#282828',
+                        spotifyGray: '#B3B3B3'
+                    },
+                    fontFamily: {
+                        sans: ['Figtree', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #000; }
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border: 3px solid #121212; border-radius: 8px; }
+        .hero-grad { background: linear-gradient(180deg, #1d4d31 0%, #14351f 45%, #121212 100%); }
+        input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 999px; background: #4d4d4d; outline: none; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+        input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: #fff; }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen font-sans antialiased pb-36">
+
+    <!-- Topbar -->
+    <div class="sticky top-0 z-50 bg-black/80 backdrop-blur-md">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+            <a href="index.html" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-lg leading-none shrink-0" aria-label="Kembali ke SpotPrem">‹</a>
+            <span class="w-8 h-8 rounded-full bg-spotify flex items-center justify-center shrink-0" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="black" stroke-width="2.1" stroke-linecap="round"><path d="M4.5 9.2a10.5 10.5 0 0 1 15 1.6"/><path d="M4.8 12.7a8.2 8.2 0 0 1 11.7 1.4"/><path d="M5.1 16a5.8 5.8 0 0 1 8.4 1.1"/></svg>
+            </span>
+            <h1 class="font-black tracking-tight text-lg">Spot<span class="text-spotify">Prem</span> <span class="text-spotifyGray font-bold text-sm ml-1">Pemutar Musik</span></h1>
+            <div id="user-chip" class="ml-auto hidden items-center gap-3">
+                <span id="user-name" class="text-sm font-bold truncate max-w-[140px]"></span>
+                <button id="btn-logout" class="text-xs font-bold bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-full">Keluar</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-5xl mx-auto px-4">
+
+        <!-- Peringatan konfigurasi (muncul bila Client ID belum diisi pemilik situs) -->
+        <div id="config-warning" class="hidden mt-4 bg-[#3a2b00] border border-[#f5c518]/50 text-[#ffe9a8] text-sm font-semibold rounded-lg px-4 py-3">
+            ⚠️ Pemutar belum dikonfigurasi: pemilik situs belum mengisi <b>Client ID Spotify</b> di file ini. Lihat PETUNJUK_PEMUTAR.txt langkah 1–3.
+        </div>
+
+        <div id="status" class="hidden mt-4 bg-[#2a2a2a] border border-white/10 text-sm font-semibold rounded-lg px-4 py-3"></div>
+
+        <!-- ===== Tampilan LOGIN ===== -->
+        <section id="login-view" class="hero-grad rounded-xl mt-4 px-6 py-12 md:py-16 text-center">
+            <div class="text-6xl mb-5">🎧</div>
+            <h2 class="text-3xl md:text-5xl font-black tracking-tight mb-3">Putar lagu penuh,<br class="hidden md:block"> langsung di SpotPrem</h2>
+            <p class="text-white/85 max-w-xl mx-auto mb-3">Login dengan akun <b>Spotify Premium milikmu sendiri</b>, lalu cari dan putar lagu favoritmu secara penuh — seperti di aplikasi Spotify, tanpa jeda iklan.</p>
+            <p class="text-spotifyGray text-sm max-w-xl mx-auto mb-8">Lagu diputar resmi lewat Spotify. Karena itu akun yang dipakai login harus Premium; akun gratis akan ditolak oleh Spotify saat memutar.</p>
+            <button id="btn-login" class="bg-spotify text-black font-bold text-base px-8 py-3.5 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-xl">Login dengan Spotify</button>
+            <p class="text-[11px] text-spotifyGray mt-6">SpotPrem tidak menyimpan password Spotify-mu — login terjadi di halaman resmi Spotify.<br>Pemutar web Spotify berjalan paling baik di browser desktop (Chrome, Edge, Firefox, Safari).</p>
+        </section>
+
+        <!-- ===== Tampilan PEMUTAR ===== -->
+        <section id="player-view" class="hidden mt-4">
+            <div class="hero-grad rounded-xl px-5 py-6 md:px-8">
+                <h2 class="text-2xl md:text-4xl font-black tracking-tight mb-1">Mau dengar apa hari ini?</h2>
+                <p id="player-sub" class="text-white/80 text-sm mb-5">Cari lagu lalu klik untuk memutar penuh.</p>
+                <label class="flex items-center gap-3 bg-white text-black rounded-full px-5 py-3 max-w-xl shadow-lg">
+                    <svg viewBox="0 0 24 24" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8" stroke-linecap="round"/></svg>
+                    <input id="q" type="text" placeholder="Cari lagu, artis, atau album…" class="bg-transparent outline-none text-sm w-full placeholder:text-neutral-500 font-semibold">
+                </label>
+                <div class="flex flex-wrap gap-2 mt-4" id="chips">
+                    <button data-q="top hits indonesia" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">Hits Indonesia</button>
+                    <button data-q="pop terbaru" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">Pop</button>
+                    <button data-q="dangdut koplo" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">Koplo</button>
+                    <button data-q="kpop" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">K-Pop</button>
+                    <button data-q="rock classics" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">Rock</button>
+                    <button data-q="jazz santai" class="chip bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">Jazz Santai</button>
+                </div>
+            </div>
+
+            <div id="results" class="mt-4 space-y-1"></div>
+            <p id="results-empty" class="hidden text-spotifyGray text-sm font-semibold px-2 py-8 text-center">Tidak ada hasil. Coba kata kunci lain.</p>
+        </section>
+
+        <p class="text-[11px] text-spotifyGray mt-10 leading-relaxed">Pemutaran disediakan oleh Spotify Web Playback SDK dan hanya berfungsi untuk akun Spotify Premium milik pengguna yang login. SpotPrem bukan situs resmi dan tidak berafiliasi dengan Spotify.</p>
+    </main>
+
+    <!-- ===== Bar pemutar bawah ===== -->
+    <div id="playerbar" class="hidden fixed bottom-0 inset-x-0 z-50 bg-[#181818] border-t border-white/10">
+        <div class="max-w-5xl mx-auto px-4 py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+                <img id="np-cover" alt="" class="w-14 h-14 rounded bg-[#2a2a2a] object-cover shrink-0">
+                <div class="min-w-0">
+                    <p id="np-title" class="font-bold text-sm truncate">Belum ada lagu</p>
+                    <p id="np-artists" class="text-spotifyGray text-xs truncate">Pilih lagu untuk mulai</p>
+                </div>
+            </div>
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="flex items-center gap-5">
+                    <button id="btn-prev" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Sebelumnya">⏮</button>
+                    <button id="btn-toggle" class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-base hover:scale-105 transition" aria-label="Putar/Jeda">▶</button>
+                    <button id="btn-next" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Berikutnya">⏭</button>
+                </div>
+                <div class="hidden md:flex items-center gap-2 text-[11px] text-spotifyGray font-semibold w-[380px] max-w-[46vw]">
+                    <span id="t-cur">0:00</span>
+                    <input id="seek" type="range" min="0" max="1000" value="0" class="flex-1">
+                    <span id="t-dur">0:00</span>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center gap-2 justify-end">
+                <span class="text-spotifyGray text-sm">🔊</span>
+                <input id="vol" type="range" min="0" max="100" value="80" class="w-28">
+            </div>
+        </div>
+    </div>
+
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script>
+    // ================================================================
+    //  KONFIGURASI — pemilik situs: isi Client ID dari dashboard
+    //  developer Spotify di antara tanda kutip di bawah ini.
+    // ================================================================
+    const SPOTIFY_CLIENT_ID = "ISI_CLIENT_ID_DARI_SPOTIFY";
+    // ================================================================
+
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
+    const SCOPES = "streaming user-read-private user-read-email user-modify-playback-state user-read-playback-state";
+    const LS = { at: "spotprem_sp_access", rt: "spotprem_sp_refresh", exp: "spotprem_sp_expires" };
+
+    let player = null, deviceId = null, sdkReady = false, playerInitStarted = false;
+    let curState = null, stateStamp = 0, seeking = false, refreshTried = false;
+
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const fmt = ms => { if (!isFinite(ms) || ms < 0) ms = 0; const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+    function showStatus(msg) { const el = $("status"); el.textContent = msg; el.classList.remove("hidden"); }
+    function hideStatus() { $("status").classList.add("hidden"); }
+    function configured() { return SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_ID !== "ISI_CLIENT_ID_DARI_SPOTIFY"; }
+
+    // ---------- PKCE ----------
+    function randomVerifier() {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+        const arr = new Uint8Array(64);
+        crypto.getRandomValues(arr);
+        return Array.from(arr, b => chars[b % chars.length]).join("");
+    }
+    async function challengeOf(verifier) {
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+        return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    async function startLogin() {
+        if (!configured()) { showStatus("Pemilik situs belum mengisi Client ID Spotify, jadi login belum bisa dipakai."); return; }
+        const verifier = randomVerifier();
+        localStorage.setItem("spotprem_sp_verifier", verifier);
+        const challenge = await challengeOf(verifier);
+        const params = new URLSearchParams({
+            client_id: SPOTIFY_CLIENT_ID, response_type: "code", redirect_uri: REDIRECT_URI,
+            scope: SCOPES, code_challenge_method: "S256", code_challenge: challenge
+        });
+        window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
+    }
+
+    async function tokenRequest(body) {
+        const res = await fetch("https://accounts.spotify.com/api/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams(body).toString()
+        });
+        if (!res.ok) throw new Error("token " + res.status);
+        return res.json();
+    }
+    function saveTokens(data) {
+        localStorage.setItem(LS.at, data.access_token);
+        if (data.refresh_token) localStorage.setItem(LS.rt, data.refresh_token);
+        localStorage.setItem(LS.exp, String(Date.now() + (data.expires_in || 3600) * 1000));
+    }
+    async function exchangeCode(code) {
+        const verifier = localStorage.getItem("spotprem_sp_verifier");
+        const data = await tokenRequest({
+            grant_type: "authorization_code", code: code, redirect_uri: REDIRECT_URI,
+            client_id: SPOTIFY_CLIENT_ID, code_verifier: verifier || ""
+        });
+        saveTokens(data);
+        localStorage.removeItem("spotprem_sp_verifier");
+        history.replaceState({}, document.title, REDIRECT_URI);
+    }
+    async function refreshTokens() {
+        const rt = localStorage.getItem(LS.rt);
+        if (!rt) return false;
+        try {
+            const data = await tokenRequest({ grant_type: "refresh_token", refresh_token: rt, client_id: SPOTIFY_CLIENT_ID });
+            saveTokens(data);
+            return true;
+        } catch (e) { return false; }
+    }
+    async function getToken() {
+        const at = localStorage.getItem(LS.at);
+        const exp = parseInt(localStorage.getItem(LS.exp) || "0", 10);
+        if (at && Date.now() < exp - 30000) return at;
+        if (await refreshTokens()) return localStorage.getItem(LS.at);
+        return at;
+    }
+    function logout() {
+        localStorage.removeItem(LS.at); localStorage.removeItem(LS.rt); localStorage.removeItem(LS.exp);
+        if (player) { try { player.disconnect(); } catch (e) {} player = null; }
+        deviceId = null; playerInitStarted = false;
+        $("player-view").classList.add("hidden");
+        $("playerbar").classList.add("hidden");
+        $("user-chip").classList.add("hidden"); $("user-chip").classList.remove("flex");
+        $("login-view").classList.remove("hidden");
+    }
+
+    // ---------- Spotify Web API ----------
+    async function api(path, opts) {
+        opts = opts || {};
+        const token = await getToken();
+        const res = await fetch("https://api.spotify.com/v1" + path, Object.assign({}, opts, {
+            headers: Object.assign({ "Authorization": "Bearer " + token }, opts.headers || {})
+        }));
+        if (res.status === 401 && !refreshTried) {
+            refreshTried = true;
+            if (await refreshTokens()) return api(path, opts);
+            logout(); showStatus("Sesi Spotify berakhir. Silakan login lagi.");
+            throw new Error("401");
+        }
+        return res;
+    }
+
+    async function loadProfile() {
+        try {
+            const res = await api("/me");
+            if (!res.ok) return;
+            const me = await res.json();
+            $("user-name").textContent = me.display_name || me.id || "Akun Spotify";
+            if (me.product && me.product !== "premium") {
+                showStatus("Perhatian: akun yang login terdeteksi BUKAN Premium (" + me.product + "). Spotify akan menolak pemutaran lagu penuh untuk akun gratis.");
+            }
+        } catch (e) {}
+    }
+
+    // ---------- Pencarian & daftar lagu ----------
+    let searchTimer = null;
+    async function doSearch(q) {
+        q = (q || "").trim();
+        if (!q) { $("results").innerHTML = ""; return; }
+        try {
+            const res = await api("/search?type=track&limit=24&q=" + encodeURIComponent(q));
+            if (!res.ok) { showStatus("Pencarian gagal (" + res.status + "). Coba lagi sebentar."); return; }
+            const data = await res.json();
+            renderResults(((data.tracks || {}).items) || []);
+        } catch (e) { if (String(e.message) !== "401") showStatus("Pencarian gagal. Periksa koneksimu lalu coba lagi."); }
+    }
+    function renderResults(tracks) {
+        const box = $("results");
+        box.innerHTML = "";
+        $("results-empty").classList.toggle("hidden", tracks.length > 0);
+        tracks.forEach(t => {
+            const img = (t.album && t.album.images && t.album.images.length) ? (t.album.images[t.album.images.length - 1].url) : "";
+            const artists = (t.artists || []).map(a => a.name).join(", ");
+            const row = document.createElement("button");
+            row.className = "w-full flex items-center gap-4 px-3 py-2.5 rounded-lg hover:bg-spotifyHover text-left transition group";
+            row.setAttribute("data-uri", t.uri);
+            row.innerHTML =
+                '<img src="' + esc(img) + '" alt="" class="w-12 h-12 rounded object-cover bg-[#2a2a2a] shrink-0">' +
+                '<span class="flex-1 min-w-0"><span class="block font-bold text-[15px] truncate">' + esc(t.name) + '</span>' +
+                '<span class="block text-spotifyGray text-sm truncate">' + esc(artists) + '</span></span>' +
+                '<span class="hidden md:block text-spotifyGray text-sm truncate w-56">' + esc(t.album ? t.album.name : "") + '</span>' +
+                '<span class="text-spotifyGray text-sm font-semibold">' + fmt(t.duration_ms) + '</span>' +
+                '<span class="w-10 h-10 rounded-full bg-spotify text-black items-center justify-center text-sm shrink-0 hidden group-hover:flex shadow-lg">▶</span>';
+            row.addEventListener("click", () => playTrack(t.uri));
+            box.appendChild(row);
+        });
+    }
+
+    async function playTrack(uri) {
+        if (!deviceId) { showStatus("Pemutar masih menyambung ke Spotify… tunggu sebentar lalu klik lagi."); return; }
+        hideStatus();
+        try {
+            const res = await api("/me/player/play?device_id=" + encodeURIComponent(deviceId), {
+                method: "PUT", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uris: [uri] })
+            });
+            if (res.status === 403) showStatus("Spotify menolak memutar (403). Penyebab paling umum: akun yang login bukan Premium.");
+            else if (!res.ok && res.status !== 204) showStatus("Gagal memutar (" + res.status + "). Coba klik lagu lain.");
+        } catch (e) {}
+    }
+
+    // ---------- Web Playback SDK ----------
+    window.onSpotifyWebPlaybackSDKReady = function () { sdkReady = true; maybeInitPlayer(); };
+
+    async function maybeInitPlayer() {
+        if (!sdkReady || playerInitStarted) return;
+        const token = await getToken();
+        if (!token) return;
+        playerInitStarted = true;
+        player = new Spotify.Player({
+            name: "SpotPrem Player",
+            getOAuthToken: async cb => { cb(await getToken()); },
+            volume: 0.8
+        });
+        player.addListener("ready", ({ device_id }) => {
+            deviceId = device_id;
+            $("player-sub").textContent = "Terhubung ✓ — cari lagu lalu klik untuk memutar penuh.";
+            hideStatus();
+        });
+        player.addListener("not_ready", () => { deviceId = null; });
+        player.addListener("player_state_changed", state => {
+            if (!state) return;
+            curState = state; stateStamp = Date.now();
+            const track = state.track_window && state.track_window.current_track;
+            if (track) {
+                $("np-title").textContent = track.name || "—";
+                $("np-artists").textContent = (track.artists || []).map(a => a.name).join(", ");
+                const img = track.album && track.album.images && track.album.images.length ? track.album.images[0].url : "";
+                if (img) $("np-cover").src = img;
+            }
+            $("btn-toggle").textContent = state.paused ? "▶" : "⏸";
+            updateProgress();
+        });
+        player.addListener("initialization_error", ({ message }) => showStatus("Pemutar tidak bisa dimulai di browser ini: " + message + " (browser desktop disarankan)."));
+        player.addListener("authentication_error", async ({ message }) => {
+            if (await refreshTokens()) { showStatus("Sesi diperbarui — muat ulang halaman bila pemutar belum menyambung."); }
+            else { logout(); showStatus("Login Spotify kedaluwarsa. Silakan login lagi."); }
+        });
+        player.addListener("account_error", () => showStatus("Akun ini bukan Spotify Premium — pemutaran lagu penuh hanya untuk Premium. Login dengan akun Premium untuk melanjutkan."));
+        player.addListener("playback_error", ({ message }) => showStatus("Gagal memutar: " + message));
+        player.connect();
+    }
+
+    function updateProgress() {
+        if (!curState || seeking) return;
+        let pos = curState.position || 0;
+        if (!curState.paused) pos += Date.now() - stateStamp;
+        const dur = curState.duration || 0;
+        if (dur > 0) pos = Math.min(pos, dur);
+        $("seek").value = dur ? Math.round(pos / dur * 1000) : 0;
+        $("t-cur").textContent = fmt(pos);
+        $("t-dur").textContent = fmt(dur);
+    }
+    setInterval(updateProgress, 500);
+
+    // ---------- Inisialisasi halaman ----------
+    (async function init() {
+        if (!configured()) $("config-warning").classList.remove("hidden");
+        $("btn-login").addEventListener("click", startLogin);
+        $("btn-logout").addEventListener("click", logout);
+        $("btn-toggle").addEventListener("click", () => { if (player) player.togglePlay(); });
+        $("btn-next").addEventListener("click", () => { if (player) player.nextTrack(); });
+        $("btn-prev").addEventListener("click", () => { if (player) player.previousTrack(); });
+        $("vol").addEventListener("input", e => { if (player) player.setVolume(e.target.value / 100); });
+        $("seek").addEventListener("input", () => { seeking = true; });
+        $("seek").addEventListener("change", e => {
+            seeking = false;
+            if (player && curState && curState.duration) player.seek(Math.round(curState.duration * e.target.value / 1000));
+        });
+        $("q").addEventListener("input", e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => doSearch(e.target.value), 400); });
+        document.querySelectorAll("#chips .chip").forEach(ch => ch.addEventListener("click", () => { $("q").value = ch.getAttribute("data-q"); doSearch(ch.getAttribute("data-q")); }));
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("error")) { showStatus("Login Spotify dibatalkan/gagal: " + params.get("error")); history.replaceState({}, document.title, REDIRECT_URI); }
+        if (params.get("code")) {
+            try { await exchangeCode(params.get("code")); }
+            catch (e) { showStatus("Pertukaran kode login gagal. Coba login lagi."); }
+        }
+        const token = await getToken();
+        if (token) {
+            $("login-view").classList.add("hidden");
+            $("player-view").classList.remove("hidden");
+            $("playerbar").classList.remove("hidden");
+            $("user-chip").classList.remove("hidden"); $("user-chip").classList.add("flex");
+            loadProfile();
+            maybeInitPlayer();
+            doSearch("top hits indonesia");
+        }
+    })();
+    </script>
+</body>
+</html>
