@@ -1,12 +1,1 @@
-{
-  "name": "spotify-share-render",
-  "version": "1.0.0",
-  "description": "Website bagi-bagi akun Spotify dengan Render Secret Files",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2"
-  }
-}
+{"dependencies":{"express":"^4.19.2"},"description":"SpotPrem — situs bagi akun Spotify Premium dengan admin online","engines":{"node":">=18"},"main":"server.js","name":"spotprem","private":true,"scripts":{"start":"node server.js"},"version":"1.0.0"}

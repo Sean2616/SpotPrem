@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin SpotPrem Online — Kelola Akun</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: { spotify: '#1ED760', spotifyDark: '#121212', spotifyCard: '#181818', spotifyHover: '#282828' } } } };
+</script>
+<style>
+  body { background:#000; }
+  .field { width:100%; background:#242424; border:1px solid transparent; border-radius:8px; padding:8px 11px; font-size:13px; color:#fff; outline:none; }
+  .field:focus { border-color:rgba(255,255,255,.5); background:#2a2a2a; }
+  .lbl { display:block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#b3b3b3; margin-bottom:4px; }
+  ::-webkit-scrollbar { width:10px; } ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.25); border-radius:8px; }
+</style>
+</head>
+<body class="bg-black text-white min-h-screen font-sans antialiased">
+
+<!-- ======= LAYAR PIN ======= -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-spotifyDark rounded-2xl p-8 text-center">
+    <div class="w-14 h-14 mx-auto rounded-full bg-spotify flex items-center justify-center text-black text-2xl font-black mb-4">♫</div>
+    <h1 class="text-2xl font-black tracking-tight mb-1">Admin SpotPrem</h1>
+    <p class="text-sm text-zinc-400 mb-6">Masuk dengan password admin untuk membuka panel pengelola akun.</p>
+    <input id="login-password" type="password" autocomplete="current-password" placeholder="Password admin"
+      class="w-full bg-[#242424] border border-transparent focus:border-white/50 rounded-full px-5 py-3 text-center text-base outline-none mb-3"
+      onkeydown="if(event.key==='Enter') doLogin()">
+    <p id="login-error" class="hidden text-sm text-red-400 font-semibold mb-3">Password salah.</p>
+    <button id="login-btn" onclick="doLogin()" class="w-full bg-spotify hover:bg-[#3be477] text-black font-bold py-3 rounded-full transition">Masuk Panel</button>
+    <p class="text-[11px] text-zinc-500 mt-5 leading-relaxed">Password diatur di Render lewat Environment Variable <span class="font-mono">ADMIN_PASSWORD</span> — password ini dicek oleh server, bukan tertulis di file ini.</p>
+  </div>
+</div>
+
+<!-- ======= PANEL ADMIN ======= -->
+<div id="panel" class="hidden">
+  <div class="max-w-6xl mx-auto px-4 py-6 pb-36">
+
+    <header class="flex flex-wrap items-center gap-3 mb-2">
+      <span class="w-10 h-10 rounded-full bg-spotify flex items-center justify-center text-black text-xl font-black">♫</span>
+      <div class="mr-auto">
+        <h1 class="text-2xl font-black tracking-tight leading-none">Admin <span class="text-spotify">SpotPrem</span></h1>
+        <p id="load-status" class="text-xs text-zinc-400 mt-1">Memuat data dari server…</p>
+      </div>
+      <a href="index.html" class="bg-white text-black text-sm font-bold px-4 py-2 rounded-full hover:scale-[1.03] transition">Lihat Situs</a>
+      <button onclick="lockPanel()" class="bg-[#2a2a2a] hover:bg-[#353535] text-sm font-bold px-4 py-2 rounded-full transition">Keluar</button>
+    </header>
+
+    <div class="bg-[#242424] rounded-xl px-4 py-3 text-xs text-zinc-300 leading-relaxed mb-6">
+      <b class="text-white">Cara kerja panel online ini:</b> edit akun di bawah → klik <b class="text-white">Simpan ke Server</b> → situs langsung berubah saat itu juga, tanpa unduh / upload file apa pun. Login di halaman ini dicek betulan oleh server. Tetap jangan sebarkan alamat halaman admin ini.
+    </div>
+
+    <!-- Ringkasan -->
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-total" class="text-3xl font-black">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Total Akun</p></div>
+      <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-active" class="text-3xl font-black text-spotify">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Aktif</p></div>
+      <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-gone" class="text-3xl font-black text-red-400">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Habis / Penuh</p></div>
+    </div>
+
+    <div id="warn-box" class="hidden bg-red-500/10 border border-red-500/40 text-red-300 text-xs rounded-xl px-4 py-3 mb-6 leading-relaxed"></div>
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap gap-2 mb-5">
+      <button onclick="addAccount()" class="bg-spotify hover:bg-[#3be477] text-black text-sm font-bold px-5 py-2.5 rounded-full transition">＋ Tambah Akun</button>
+      <button onclick="loadLive(true)" class="bg-[#2a2a2a] hover:bg-[#353535] text-sm font-bold px-5 py-2.5 rounded-full transition">↻ Muat Ulang dari Server</button>
+    </div>
+
+    <!-- Daftar editor akun -->
+    <div id="editor-list" class="space-y-4"></div>
+    <p id="empty-editor" class="hidden text-center text-zinc-500 py-10 text-sm">Belum ada akun. Klik “＋ Tambah Akun” untuk mulai, lalu Simpan ke Server.</p>
+  </div>
+
+  <!-- Bar aksi bawah -->
+  <div class="fixed bottom-0 inset-x-0 z-50 bg-black/90 backdrop-blur border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+      <span id="dirty-note" class="text-xs font-semibold text-zinc-400 mr-auto">Semua perubahan sudah tersimpan di server</span>
+      <button id="save-btn" onclick="saveToServer()" class="bg-spotify hover:bg-[#3be477] text-black text-sm font-bold px-6 py-2.5 rounded-full transition">💾 Simpan ke Server</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-24 right-5 z-[60] bg-spotify text-black font-bold text-sm px-5 py-3 rounded-full shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300">Berhasil</div>
+
+<script>
+  let adminAccounts = [];
+  let dirty = false;
+
+  /* ---------- Login & sesi (dicek server) ---------- */
+  function showLogin() {
+    document.getElementById('panel').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+  function showPanel() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('panel').classList.remove('hidden');
+  }
+  async function doLogin() {
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    err.classList.add('hidden');
+    btn.textContent = 'Memeriksa…'; btn.disabled = true;
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('login-password').value })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || 'Login gagal');
+      document.getElementById('login-password').value = '';
+      showPanel();
+      await loadLive(false);
+    } catch (e) {
+      err.textContent = e.message;
+      err.classList.remove('hidden');
+    } finally {
+      btn.textContent = 'Masuk Panel'; btn.disabled = false;
+    }
+  }
+  async function lockPanel() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+    location.reload();
+  }
+
+  /* ---------- Muat data dari server ---------- */
+  async function loadLive(manual) {
+    const status = document.getElementById('load-status');
+    status.textContent = 'Memuat data akun dari server…';
+    try {
+      const res = await fetch('/api/accounts', { cache: 'no-store' });
+      if (res.status === 401) {
+        showLogin();
+        if (manual) toast('Sesi login habis — silakan login lagi');
+        return false;
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      adminAccounts = (j.accounts || []).map(normalize);
+      dirty = false;
+      status.textContent = 'Data saat ini: tersimpan di server (' + adminAccounts.length + ' akun). Perubahan tampil di situs setelah disimpan.';
+      showPanel();
+      renderEditor();
+      if (manual) toast('Data server dimuat: ' + adminAccounts.length + ' akun');
+      return true;
+    } catch (e) {
+      status.textContent = 'Tidak bisa menghubungi server. Pastikan server.js versi online sudah jalan di Render.';
+      if (manual) toast('Gagal memuat data dari server');
+      return false;
+    }
+  }
+  function normalize(a, i) {
+    return {
+      id: (a && a.id != null) ? a.id : i + 1,
+      plan: (a && a.plan) || '',
+      region: (a && a.region) || '',
+      email: (a && a.email) || '',
+      password: (a && a.password) || '',
+      status: (a && a.status) || 'Aktif',
+      available: !!(a && a.available),
+      updatedAt: (a && a.updatedAt) || 'Baru saja'
+    };
+  }
+
+  /* ---------- Editor ---------- */
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function renderEditor() {
+    const wrap = document.getElementById('editor-list');
+    wrap.innerHTML = '';
+    document.getElementById('empty-editor').classList.toggle('hidden', adminAccounts.length > 0);
+    adminAccounts.forEach((a, i) => {
+      const card = document.createElement('div');
+      card.className = 'bg-spotifyCard rounded-xl p-4 md:p-5';
+      card.innerHTML = `
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-9 h-9 rounded-md ${a.available ? 'bg-spotify text-black' : 'bg-zinc-700 text-zinc-300'} flex items-center justify-center font-black shrink-0">♫</span>
+          <div class="min-w-0 mr-auto">
+            <p id="hdr-plan-${i}" class="font-bold truncate">${esc(a.plan) || '(paket belum diisi)'}</p>
+            <p id="hdr-status-${i}" class="text-xs ${a.available ? 'text-spotify' : 'text-red-400'} font-semibold">${esc(a.status)} • ID ${esc(a.id)}</p>
+          </div>
+          <label class="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0">
+            <input type="checkbox" ${a.available ? 'checked' : ''} onchange="setField(${i},'available',this.checked)" class="w-4 h-4 accent-[#1ED760]"> Tersedia
+          </label>
+          <button onclick="duplicateAccount(${i})" class="text-xs font-bold bg-[#2a2a2a] hover:bg-[#353535] px-3 py-1.5 rounded-full shrink-0">Duplikat</button>
+          <button onclick="deleteAccount(${i})" class="text-xs font-bold bg-red-500/15 text-red-400 hover:bg-red-500/25 px-3 py-1.5 rounded-full shrink-0">Hapus</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <div><label class="lbl">Nama Paket (plan)</label><input class="field" value="${esc(a.plan)}" oninput="setField(${i},'plan',this.value)" placeholder="Spotify Premium Individual"></div>
+          <div><label class="lbl">Region / Keterangan</label><input class="field" value="${esc(a.region)}" oninput="setField(${i},'region',this.value)" placeholder="Region ID • 1 Bulan"></div>
+          <div><label class="lbl">Email Akun</label><input class="field font-mono" value="${esc(a.email)}" oninput="setField(${i},'email',this.value)" placeholder="email@contoh.com"></div>
+          <div><label class="lbl">Password Akun</label>
+            <div class="flex gap-2"><input id="pw-${i}" type="password" class="field font-mono" value="${esc(a.password)}" oninput="setField(${i},'password',this.value)" placeholder="password">
+            <button onclick="togglePw(${i})" class="text-xs font-bold bg-[#2a2a2a] hover:bg-[#353535] px-3 rounded-lg shrink-0">Lihat</button></div>
+          </div>
+          <div><label class="lbl">Status (teks label)</label><input class="field" value="${esc(a.status)}" list="status-list" oninput="setField(${i},'status',this.value)">
+            <datalist id="status-list"><option value="Aktif"></option><option value="Penuh / Limit"></option><option value="Habis"></option></datalist></div>
+          <div><label class="lbl">Diperbarui (updatedAt)</label><input class="field" value="${esc(a.updatedAt)}" oninput="setField(${i},'updatedAt',this.value)" placeholder="Baru saja"></div>
+        </div>`;
+      wrap.appendChild(card);
+    });
+    renderSummary();
+    updateDirtyNote();
+  }
+  function setField(i, key, value) {
+    adminAccounts[i][key] = value;
+    dirty = true;
+    if (key === 'available') {
+      if (value && adminAccounts[i].status !== 'Aktif') adminAccounts[i].status = 'Aktif';
+      if (!value && adminAccounts[i].status === 'Aktif') adminAccounts[i].status = 'Penuh / Limit';
+      renderEditor();
+      return;
+    }
+    // Untuk ketikan teks: JANGAN render ulang (input bisa kehilangan fokus).
+    // Cukup perbarui judul kartu, ringkasan, peringatan, dan pratinjau kode.
+    const hp = document.getElementById('hdr-plan-' + i);
+    if (hp) hp.textContent = adminAccounts[i].plan || '(paket belum diisi)';
+    const hs = document.getElementById('hdr-status-' + i);
+    if (hs) hs.textContent = adminAccounts[i].status + ' • ID ' + adminAccounts[i].id;
+    renderSummary();
+    updateDirtyNote();
+  }
+  function togglePw(i) {
+    const el = document.getElementById('pw-' + i);
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+  function addAccount() {
+    const nextId = adminAccounts.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0) + 1;
+    adminAccounts.push({ id: nextId, plan: 'Spotify Premium Individual', region: 'Region ID • 1 Bulan', email: '', password: '', status: 'Aktif', available: true, updatedAt: 'Baru saja' });
+    dirty = true;
+    renderEditor();
+    toast('Akun baru ditambahkan — isi email & password-nya');
+  }
+  function duplicateAccount(i) {
+    const copy = JSON.parse(JSON.stringify(adminAccounts[i]));
+    copy.id = adminAccounts.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0) + 1;
+    adminAccounts.splice(i + 1, 0, copy);
+    dirty = true;
+    renderEditor();
+  }
+  function deleteAccount(i) {
+    if (!confirm('Hapus akun "' + (adminAccounts[i].plan || adminAccounts[i].email || ('#' + (i + 1))) + '" dari daftar?')) return;
+    adminAccounts.splice(i, 1);
+    dirty = true;
+    renderEditor();
+  }
+  function renderSummary() {
+    const active = adminAccounts.filter(a => a.available).length;
+    document.getElementById('sum-total').textContent = adminAccounts.length;
+    document.getElementById('sum-active').textContent = active;
+    document.getElementById('sum-gone').textContent = adminAccounts.length - active;
+    const warns = [];
+    const seen = {};
+    adminAccounts.forEach((a, i) => {
+      const label = 'Akun #' + (i + 1) + ' (' + (a.plan || 'tanpa paket') + ')';
+      if (!a.email) warns.push(label + ': email masih kosong.');
+      else if (!a.email.includes('@')) warns.push(label + ': email tidak mengandung "@".');
+      if (a.available && !a.password) warns.push(label + ': status tersedia tapi password kosong.');
+      if (a.email && seen[a.email]) warns.push(label + ': email sama dengan akun lain.');
+      if (a.email) seen[a.email] = true;
+    });
+    const box = document.getElementById('warn-box');
+    box.classList.toggle('hidden', warns.length === 0);
+    box.innerHTML = warns.length ? '<b>Perlu dicek:</b><br>' + warns.map(esc).join('<br>') : '';
+  }
+  function updateDirtyNote() {
+    document.getElementById('dirty-note').textContent = dirty
+      ? 'Ada perubahan belum disimpan — klik Simpan ke Server'
+      : 'Semua perubahan sudah tersimpan di server';
+    document.getElementById('dirty-note').className = 'text-xs font-semibold mr-auto ' + (dirty ? 'text-[#1ED760]' : 'text-zinc-400');
+  }
+
+  /* ---------- Simpan ke server ---------- */
+  async function saveToServer() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Menyimpan…';
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts: adminAccounts })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 401) { showLogin(); toast('Sesi login habis — login lagi, lalu simpan ulang'); return; }
+      if (!res.ok) throw new Error(j.error || 'Server menolak simpanan');
+      dirty = false;
+      updateDirtyNote();
+      toast('Tersimpan di server — situs langsung ter-update (' + j.count + ' akun, ' + j.active + ' aktif)');
+    } catch (e) {
+      toast('Gagal menyimpan: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+  function toast(message) {
+    const t = document.getElementById('toast');
+    t.textContent = message;
+    t.classList.remove('translate-y-24', 'opacity-0');
+    setTimeout(() => t.classList.add('translate-y-24', 'opacity-0'), 2600);
+  }
+
+  // Kalau sesi login masih berlaku, panel langsung terbuka; kalau tidak, layar login tampil.
+  loadLive(false);
+</script>
+</body>
+</html>
