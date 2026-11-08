@@ -1,1 +1,1 @@
-{"description":"SpotPrem — situs bagi akun Spotify Premium dengan admin online (Vercel Serverless + Firebase)","engines":{"node":">=18"},"name":"spotprem","private":true,"version":"2.0.0-vercel"}
+{"description":"SpotPrem — situs bagi akun Spotify Premium dengan admin online (Vercel + Firebase)","engines":{"node":">=18"},"main":"server.js","name":"spotprem","private":true,"scripts":{"start":"node server.js"},"version":"2.1.0-vercel"}
