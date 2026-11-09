@@ -166,9 +166,14 @@
                     <a href="player.html" class="text-spotify text-sm font-bold hover:underline shrink-0">Buka Pemutar →</a>
                 </div>
                 <div class="rounded-xl overflow-hidden bg-black border border-white/10">
-                    <iframe title="Playlist unggulan Spotify" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/1OiiFyV4pJ7Pl5yhB4OHLO?utm_source=generator&theme=0" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                    <iframe id="home-sp-frame" title="Playlist unggulan Spotify" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/1OiiFyV4pJ7Pl5yhB4OHLO?utm_source=generator&theme=0" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
                 </div>
                 <p class="mt-2 text-[13px] text-white/60 font-semibold">Playlist • Top 50 Indonesia — lagu-lagu Indonesia terbaik saat ini. Belum login Spotify = cuplikan 30 detik; sudah login = bisa putar penuh.</p>
+                <div class="flex flex-wrap items-center gap-2 mt-3">
+                    <a id="home-sp-login" href="https://accounts.spotify.com/login" target="_blank" rel="noopener" class="bg-spotify text-black font-bold text-sm px-5 py-2.5 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-lg">Login ke Spotify</a>
+                    <button id="home-sp-reload" class="bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-5 py-2.5 rounded-full border border-white/30 transition">🔄 Muat Ulang Player</button>
+                    <span class="text-[13px] text-white/60 font-semibold">Login memakai akun Premium dari daftar di bawah ini (di halaman resmi Spotify, tab baru), lalu kembali ke sini — player otomatis dimuat ulang.</span>
+                </div>
             </section>
 
             <!-- Chips filter ala Spotify -->
@@ -460,6 +465,29 @@
 
     renderAccounts();
     loadCopyStats();
+</script>
+<script>
+    // Tombol Login Spotify + Muat Ulang Player (section embed homepage):
+    // login terjadi di tab baru (halaman resmi Spotify); saat pengunjung
+    // kembali, fokus ke tab ini memicu muat ulang iframe embed.
+    (function () {
+        var frame = document.getElementById('home-sp-frame');
+        if (!frame) return;
+        var pending = false;
+        function reloadFrame() {
+            var s = frame.src;
+            frame.src = s;
+            frame.setAttribute('data-reloaded', String(Date.now()));
+        }
+        var login = document.getElementById('home-sp-login');
+        if (login) login.addEventListener('click', function () { pending = true; });
+        var btn = document.getElementById('home-sp-reload');
+        if (btn) btn.addEventListener('click', reloadFrame);
+        window.addEventListener('focus', function () {
+            if (pending) { pending = false; reloadFrame(); }
+        });
+        window.__homeSpReloadFrame = reloadFrame;
+    })();
 </script>
 </body>
 </html>
