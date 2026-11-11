@@ -55,20 +55,52 @@
     <div class="grid grid-cols-3 gap-3 mb-6">
       <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-total" class="text-3xl font-black">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Total Akun</p></div>
       <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-active" class="text-3xl font-black text-spotify">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Aktif</p></div>
-      <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-gone" class="text-3xl font-black text-red-400">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Habis / Penuh</p></div>
+      <div class="bg-spotifyDark rounded-xl p-4"><p id="sum-gone" class="text-3xl font-black text-red-400">0</p><p class="text-xs text-zinc-400 font-semibold mt-1">Tidak Aktif (Habis / Penuh)</p></div>
     </div>
 
     <div id="warn-box" class="hidden bg-red-500/10 border border-red-500/40 text-red-300 text-xs rounded-xl px-4 py-3 mb-6 leading-relaxed"></div>
 
-    <!-- Toolbar -->
-    <div class="flex flex-wrap gap-2 mb-5">
-      <button onclick="addAccount()" class="bg-spotify hover:bg-[#3be477] text-black text-sm font-bold px-5 py-2.5 rounded-full transition">＋ Tambah Akun</button>
-      <button onclick="loadLive(true)" class="bg-[#2a2a2a] hover:bg-[#353535] text-sm font-bold px-5 py-2.5 rounded-full transition">↻ Muat Ulang dari Server</button>
+    <!-- Toolbar & Filter Katalog -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div class="flex flex-wrap gap-2">
+        <button onclick="addAccount(true)" class="bg-spotify hover:bg-[#3be477] text-black text-sm font-bold px-5 py-2.5 rounded-full transition">＋ Tambah Akun Aktif</button>
+        <button onclick="addAccount(false)" class="bg-[#2a2a2a] hover:bg-[#353535] text-zinc-200 text-sm font-bold px-4 py-2.5 rounded-full transition">＋ Tambah Akun Tidak Aktif</button>
+        <button onclick="loadLive(true)" class="bg-[#2a2a2a] hover:bg-[#353535] text-sm font-bold px-4 py-2.5 rounded-full transition">↻ Muat Ulang</button>
+      </div>
+
+      <!-- Tab Filter Tampilan -->
+      <div class="inline-flex bg-spotifyDark p-1 rounded-full border border-white/10 text-xs font-bold">
+        <button id="tab-all" onclick="setCatalogView('all')" class="px-4 py-1.5 rounded-full bg-white text-black transition">Semua Katalog</button>
+        <button id="tab-active" onclick="setCatalogView('active')" class="px-4 py-1.5 rounded-full text-zinc-400 hover:text-white transition">Aktif Saja</button>
+        <button id="tab-inactive" onclick="setCatalogView('inactive')" class="px-4 py-1.5 rounded-full text-zinc-400 hover:text-white transition">Tidak Aktif Saja</button>
+      </div>
     </div>
 
-    <!-- Daftar editor akun -->
-    <div id="editor-list" class="space-y-4"></div>
-    <p id="empty-editor" class="hidden text-center text-zinc-500 py-10 text-sm">Belum ada akun. Klik “＋ Tambah Akun” untuk mulai, lalu Simpan ke Server.</p>
+    <!-- ======= KATALOG 1: AKUN AKTIF ======= -->
+    <section id="section-active" class="mb-10">
+      <div class="flex items-center gap-2.5 mb-4 pb-2 border-b border-white/10">
+        <span class="w-3 h-3 rounded-full bg-spotify shadow-[0_0_10px_#1ED760]"></span>
+        <h2 class="text-lg font-black tracking-tight text-white">Katalog Akun Aktif</h2>
+        <span id="badge-active" class="text-xs font-bold bg-spotify/20 text-spotify px-2.5 py-0.5 rounded-full">0 akun</span>
+      </div>
+      <div id="editor-list-active" class="space-y-4"></div>
+      <div id="empty-active" class="hidden bg-spotifyDark/60 border border-dashed border-white/10 rounded-xl text-center text-zinc-500 py-8 text-sm">
+        Belum ada akun di Katalog Aktif. Klik <b>“＋ Tambah Akun Aktif”</b> atau centang <b>Tersedia</b> pada akun yang ada.
+      </div>
+    </section>
+
+    <!-- ======= KATALOG 2: AKUN TIDAK AKTIF ======= -->
+    <section id="section-inactive" class="mb-10">
+      <div class="flex items-center gap-2.5 mb-4 pb-2 border-b border-white/10">
+        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+        <h2 class="text-lg font-black tracking-tight text-white">Katalog Akun Tidak Aktif <span class="text-zinc-400 font-normal text-sm">(Habis / Penuh)</span></h2>
+        <span id="badge-inactive" class="text-xs font-bold bg-red-500/20 text-red-400 px-2.5 py-0.5 rounded-full">0 akun</span>
+      </div>
+      <div id="editor-list-inactive" class="space-y-4"></div>
+      <div id="empty-inactive" class="hidden bg-spotifyDark/60 border border-dashed border-white/10 rounded-xl text-center text-zinc-500 py-8 text-sm">
+        Tidak ada akun di Katalog Tidak Aktif.
+      </div>
+    </section>
 
     <!-- Aktivitas salin -->
     <div class="mt-10">
@@ -98,6 +130,7 @@
 <script>
   let adminAccounts = [];
   let dirty = false;
+  let catalogView = 'all'; // 'all' | 'active' | 'inactive'
 
   /* ---------- Login & sesi (dicek server) ---------- */
   function showLogin() {
@@ -175,24 +208,53 @@
     };
   }
 
-  /* ---------- Editor ---------- */
+  /* ---------- Filter Tampilan Katalog ---------- */
+  function setCatalogView(view) {
+    catalogView = view;
+    const tabs = {
+      all: document.getElementById('tab-all'),
+      active: document.getElementById('tab-active'),
+      inactive: document.getElementById('tab-inactive')
+    };
+    Object.keys(tabs).forEach(k => {
+      if (k === view) {
+        tabs[k].className = 'px-4 py-1.5 rounded-full bg-white text-black transition';
+      } else {
+        tabs[k].className = 'px-4 py-1.5 rounded-full text-zinc-400 hover:text-white transition';
+      }
+    });
+    document.getElementById('section-active').classList.toggle('hidden', view === 'inactive');
+    document.getElementById('section-inactive').classList.toggle('hidden', view === 'active');
+  }
+
+  /* ---------- Editor (Terpisah Aktif & Tidak Aktif) ---------- */
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
   function renderEditor() {
-    const wrap = document.getElementById('editor-list');
-    wrap.innerHTML = '';
-    document.getElementById('empty-editor').classList.toggle('hidden', adminAccounts.length > 0);
+    const wrapActive = document.getElementById('editor-list-active');
+    const wrapInactive = document.getElementById('editor-list-inactive');
+    wrapActive.innerHTML = '';
+    wrapInactive.innerHTML = '';
+
+    let activeCount = 0;
+    let inactiveCount = 0;
+
     adminAccounts.forEach((a, i) => {
+      if (a.available) activeCount++;
+      else inactiveCount++;
+
       const card = document.createElement('div');
-      card.className = 'bg-spotifyCard rounded-xl p-4 md:p-5';
+      card.className = 'bg-spotifyCard rounded-xl p-4 md:p-5 border ' + (a.available ? 'border-spotify/20' : 'border-white/5 opacity-90');
       card.innerHTML = `
-        <div class="flex items-center gap-3 mb-4">
+        <div class="flex flex-wrap items-center gap-3 mb-4">
           <span class="w-9 h-9 rounded-md ${a.available ? 'bg-spotify text-black' : 'bg-zinc-700 text-zinc-300'} flex items-center justify-center font-black shrink-0">♫</span>
           <div class="min-w-0 mr-auto">
             <p id="hdr-plan-${i}" class="font-bold truncate">${esc(a.plan) || '(paket belum diisi)'}</p>
             <p id="hdr-status-${i}" class="text-xs ${a.available ? 'text-spotify' : 'text-red-400'} font-semibold">${esc(a.status)} • ID ${esc(a.id)}</p>
           </div>
-          <label class="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0">
-            <input type="checkbox" ${a.available ? 'checked' : ''} onchange="setField(${i},'available',this.checked)" class="w-4 h-4 accent-[#1ED760]"> Tersedia
+          <label class="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0 bg-[#242424] hover:bg-[#2f2f2f] px-3 py-1.5 rounded-full">
+            <input type="checkbox" ${a.available ? 'checked' : ''} onchange="setField(${i},'available',this.checked)" class="w-4 h-4 accent-[#1ED760]">
+            <span>${a.available ? 'Aktif (Tersedia)' : 'Tidak Aktif'}</span>
           </label>
           <button onclick="duplicateAccount(${i})" class="text-xs font-bold bg-[#2a2a2a] hover:bg-[#353535] px-3 py-1.5 rounded-full shrink-0">Duplikat</button>
           <button onclick="deleteAccount(${i})" class="text-xs font-bold bg-red-500/15 text-red-400 hover:bg-red-500/25 px-3 py-1.5 rounded-full shrink-0">Hapus</button>
@@ -209,11 +271,23 @@
             <datalist id="status-list"><option value="Aktif"></option><option value="Penuh / Limit"></option><option value="Habis"></option></datalist></div>
           <div><label class="lbl">Diperbarui (updatedAt)</label><input class="field" value="${esc(a.updatedAt)}" oninput="setField(${i},'updatedAt',this.value)" placeholder="Baru saja"></div>
         </div>`;
-      wrap.appendChild(card);
+
+      if (a.available) {
+        wrapActive.appendChild(card);
+      } else {
+        wrapInactive.appendChild(card);
+      }
     });
+
+    document.getElementById('badge-active').textContent = activeCount + ' akun';
+    document.getElementById('badge-inactive').textContent = inactiveCount + ' akun';
+    document.getElementById('empty-active').classList.toggle('hidden', activeCount > 0);
+    document.getElementById('empty-inactive').classList.toggle('hidden', inactiveCount > 0);
+
     renderSummary();
     updateDirtyNote();
   }
+
   function setField(i, key, value) {
     adminAccounts[i][key] = value;
     dirty = true;
@@ -221,10 +295,10 @@
       if (value && adminAccounts[i].status !== 'Aktif') adminAccounts[i].status = 'Aktif';
       if (!value && adminAccounts[i].status === 'Aktif') adminAccounts[i].status = 'Penuh / Limit';
       renderEditor();
+      toast('Akun dipindahkan ke Katalog ' + (value ? 'Aktif' : 'Tidak Aktif'));
       return;
     }
     // Untuk ketikan teks: JANGAN render ulang (input bisa kehilangan fokus).
-    // Cukup perbarui judul kartu, ringkasan, peringatan, dan pratinjau kode.
     const hp = document.getElementById('hdr-plan-' + i);
     if (hp) hp.textContent = adminAccounts[i].plan || '(paket belum diisi)';
     const hs = document.getElementById('hdr-status-' + i);
@@ -232,30 +306,47 @@
     renderSummary();
     updateDirtyNote();
   }
+
   function togglePw(i) {
     const el = document.getElementById('pw-' + i);
     el.type = el.type === 'password' ? 'text' : 'password';
   }
-  function addAccount() {
+
+  function addAccount(isAvailable = true) {
     const nextId = adminAccounts.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0) + 1;
-    adminAccounts.push({ id: nextId, plan: 'Spotify Premium Individual', region: 'Region ID • 1 Bulan', email: '', password: '', status: 'Aktif', available: true, updatedAt: 'Baru saja' });
+    adminAccounts.push({
+      id: nextId,
+      plan: 'Spotify Premium Individual',
+      region: 'Region ID • 1 Bulan',
+      email: '',
+      password: '',
+      status: isAvailable ? 'Aktif' : 'Penuh / Limit',
+      available: isAvailable,
+      updatedAt: 'Baru saja'
+    });
     dirty = true;
+    if (isAvailable && catalogView === 'inactive') setCatalogView('all');
+    if (!isAvailable && catalogView === 'active') setCatalogView('all');
     renderEditor();
-    toast('Akun baru ditambahkan — isi email & password-nya');
+    toast('Akun baru ditambahkan ke Katalog ' + (isAvailable ? 'Aktif' : 'Tidak Aktif'));
   }
+
   function duplicateAccount(i) {
     const copy = JSON.parse(JSON.stringify(adminAccounts[i]));
     copy.id = adminAccounts.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0) + 1;
     adminAccounts.splice(i + 1, 0, copy);
     dirty = true;
     renderEditor();
+    toast('Akun berhasil diduplikat');
   }
+
   function deleteAccount(i) {
     if (!confirm('Hapus akun "' + (adminAccounts[i].plan || adminAccounts[i].email || ('#' + (i + 1))) + '" dari daftar?')) return;
     adminAccounts.splice(i, 1);
     dirty = true;
     renderEditor();
   }
+
   function renderSummary() {
     const active = adminAccounts.filter(a => a.available).length;
     document.getElementById('sum-total').textContent = adminAccounts.length;
@@ -264,7 +355,7 @@
     const warns = [];
     const seen = {};
     adminAccounts.forEach((a, i) => {
-      const label = 'Akun #' + (i + 1) + ' (' + (a.plan || 'tanpa paket') + ')';
+      const label = 'Akun ID ' + a.id + ' (' + (a.plan || 'tanpa paket') + ')';
       if (!a.email) warns.push(label + ': email masih kosong.');
       else if (!a.email.includes('@')) warns.push(label + ': email tidak mengandung "@".');
       if (a.available && !a.password) warns.push(label + ': status tersedia tapi password kosong.');
@@ -275,6 +366,7 @@
     box.classList.toggle('hidden', warns.length === 0);
     box.innerHTML = warns.length ? '<b>Perlu dicek:</b><br>' + warns.map(esc).join('<br>') : '';
   }
+
   function updateDirtyNote() {
     document.getElementById('dirty-note').textContent = dirty
       ? 'Ada perubahan belum disimpan — klik Simpan ke Server'
@@ -306,6 +398,7 @@
       btn.textContent = oldText;
     }
   }
+
   /* ---------- Aktivitas salin ---------- */
   const KIND_LABEL = { email: 'Salin Email', password: 'Salin Password', both: 'Salin Email + Password', reveal: 'Lihat Password' };
   async function loadActivity() {
