@@ -106,7 +106,7 @@
     <div class="mt-10">
       <div class="flex flex-wrap items-center gap-2 mb-1">
         <h2 class="text-lg font-black tracking-tight mr-auto">📋 Aktivitas Salin <span id="activity-count" class="text-xs font-bold bg-white/10 px-2.5 py-1 rounded-full align-middle">0 catatan</span></h2>
-        <button onclick="loadActivity()" class="bg-[#2a2a2a] hover:bg-[#353535] text-xs font-bold px-4 py-2 rounded-full transition">↻ Muat Ulang</button>
+        <button onclick="loadActivity();loadCopyStats()" class="bg-[#2a2a2a] hover:bg-[#353535] text-xs font-bold px-4 py-2 rounded-full transition">↻ Muat Ulang</button>
         <button onclick="clearActivity()" class="bg-[#2a2a2a] hover:bg-red-500/30 text-xs font-bold px-4 py-2 rounded-full transition">🗑 Bersihkan</button>
       </div>
       <p class="text-xs text-zinc-400 leading-relaxed mb-4">Catatan setiap pengunjung menyalin email / password / keduanya, atau menampilkan password, dari halaman utama — lengkap dengan waktu (WIB) dan alamat IP perangkatnya. Ini hanya mencatat klik di situs; membuka file data secara langsung tidak tercatat. IP bukan identitas pasti seseorang.</p>
@@ -131,6 +131,8 @@
   let adminAccounts = [];
   let dirty = false;
   let catalogView = 'all'; // 'all' | 'active' | 'inactive'
+  let copyStats = {}; // statistik salin per email dari /api/copystats
+  let copyStatsLoaded = false;
 
   /* ---------- Login & sesi (dicek server) ---------- */
   function showLogin() {
@@ -157,6 +159,7 @@
       showPanel();
       await loadLive(false);
       loadActivity();
+      loadCopyStats();
     } catch (e) {
       err.textContent = e.message;
       err.classList.remove('hidden');
@@ -252,6 +255,7 @@
             <p id="hdr-plan-${i}" class="font-bold truncate">${esc(a.plan) || '(paket belum diisi)'}</p>
             <p id="hdr-status-${i}" class="text-xs ${a.available ? 'text-spotify' : 'text-red-400'} font-semibold">${esc(a.status)} • ID ${esc(a.id)}</p>
           </div>
+          <span id="copy-badge-${i}" class="copystat shrink-0" data-copy-email="${esc(a.email)}"></span>
           <label class="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0 bg-[#242424] hover:bg-[#2f2f2f] px-3 py-1.5 rounded-full">
             <input type="checkbox" ${a.available ? 'checked' : ''} onchange="setField(${i},'available',this.checked)" class="w-4 h-4 accent-[#1ED760]">
             <span>${a.available ? 'Aktif (Tersedia)' : 'Tidak Aktif'}</span>
@@ -286,6 +290,7 @@
 
     renderSummary();
     updateDirtyNote();
+    paintCopyBadges();
   }
 
   function setField(i, key, value) {
@@ -303,6 +308,10 @@
     if (hp) hp.textContent = adminAccounts[i].plan || '(paket belum diisi)';
     const hs = document.getElementById('hdr-status-' + i);
     if (hs) hs.textContent = adminAccounts[i].status + ' • ID ' + adminAccounts[i].id;
+    if (key === 'email') {
+      const badge = document.getElementById('copy-badge-' + i);
+      if (badge) { badge.setAttribute('data-copy-email', value || ''); paintCopyBadge(badge); }
+    }
     renderSummary();
     updateDirtyNote();
   }
@@ -399,6 +408,43 @@
     }
   }
 
+  /* ---------- Status sudah disalin per akun (dari /api/copystats) ---------- */
+  function formatCopyTime(iso) {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' WIB';
+    } catch (e) { return ''; }
+  }
+  function paintCopyBadge(el) {
+    if (!el || !copyStatsLoaded) return;
+    const email = el.getAttribute('data-copy-email') || '';
+    if (!email) { el.innerHTML = ''; return; }
+    const st = copyStats[email];
+    if (st && st.copies > 0) {
+      const when = st.last ? formatCopyTime(st.last) : '';
+      const views = (st.views > 0) ? ' • dilihat ' + st.views + '×' : '';
+      el.innerHTML = '<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-spotify bg-spotify/10 border border-spotify/30 px-2.5 py-1 rounded-full whitespace-nowrap">✓ Sudah disalin ' + st.copies + '×' + (when ? ' • terakhir ' + esc(when) : '') + views + '</span>';
+    } else if (st && st.views > 0) {
+      el.innerHTML = '<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-zinc-300 bg-white/5 border border-white/15 px-2.5 py-1 rounded-full whitespace-nowrap">Belum disalin • password dilihat ' + st.views + '×</span>';
+    } else {
+      el.innerHTML = '<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full whitespace-nowrap">Belum disalin</span>';
+    }
+  }
+  function paintCopyBadges() {
+    document.querySelectorAll('.copystat').forEach(paintCopyBadge);
+  }
+  async function loadCopyStats() {
+    try {
+      const res = await fetch('/api/copystats', { cache: 'no-store' });
+      if (!res.ok) return;
+      const j = await res.json();
+      copyStats = j.stats || {};
+      copyStatsLoaded = true;
+      paintCopyBadges();
+    } catch (e) {}
+  }
+
   /* ---------- Aktivitas salin ---------- */
   const KIND_LABEL = { email: 'Salin Email', password: 'Salin Password', both: 'Salin Email + Password', reveal: 'Lihat Password' };
   async function loadActivity() {
@@ -434,6 +480,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       toast('Catatan aktivitas dibersihkan');
       loadActivity();
+      loadCopyStats();
     } catch (e) { toast('Gagal membersihkan: ' + e.message); }
   }
 
@@ -447,6 +494,7 @@
   // Kalau sesi login masih berlaku, panel langsung terbuka; kalau tidak, layar login tampil.
   loadLive(false);
   loadActivity();
+  loadCopyStats();
 </script>
 </body>
 </html>
