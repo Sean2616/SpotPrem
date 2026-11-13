@@ -182,9 +182,9 @@
 
             <!-- Chips filter ala Spotify -->
             <div class="flex gap-2 flex-wrap mb-5" id="filter-chips">
-                <button data-filter="all" onclick="setFilter('all')" class="chip bg-white text-black text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Semua</button>
-                <button data-filter="active" onclick="setFilter('active')" class="chip bg-[#2a2a2a] hover:bg-[#353535] text-white text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Aktif</button>
+                <button data-filter="active" onclick="setFilter('active')" class="chip bg-white text-black text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Aktif</button>
                 <button data-filter="gone" onclick="setFilter('gone')" class="chip bg-[#2a2a2a] hover:bg-[#353535] text-white text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Habis / Penuh</button>
+                <button data-filter="all" onclick="setFilter('all')" class="chip bg-[#2a2a2a] hover:bg-[#353535] text-white text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Semua</button>
             </div>
 
             <div class="flex items-baseline justify-between gap-4 mb-4">
@@ -226,7 +226,7 @@
 <!-- Script Render Website -->
 <script>
     const container = document.getElementById('account-list');
-    let currentFilter = 'all';
+    let currentFilter = 'active';
     let currentQuery = '';
 
     function focusSearch(e) {
