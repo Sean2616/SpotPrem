@@ -130,8 +130,9 @@
             </div>
             <!-- Pencarian manual lirik jika judul YouTube kurang cocok -->
             <div class="flex gap-2 mt-3">
-                <input id="lyrics-query" type="text" placeholder="Judul lirik kurang cocok? Ketik judul lagu asli…" class="flex-1 bg-black/40 border border-white/15 focus:border-spotify rounded-full px-4 py-2 text-xs text-white placeholder:text-white/50 outline-none">
-                <button id="btn-lyrics-search" type="button" class="bg-spotify text-black font-bold text-xs px-4 py-2 rounded-full hover:bg-[#3be477] transition shrink-0">Cari Lirik</button>
+                <input id="lyrics-query" type="text" placeholder="Judul lirik kurang cocok? Ketik judul lagu asli…" class="flex-1 min-w-0 bg-black/40 border border-white/15 focus:border-spotify rounded-full px-4 py-2 text-xs text-white placeholder:text-white/50 outline-none">
+                <button id="btn-lyrics-search" type="button" class="bg-spotify text-black font-bold text-xs px-3.5 sm:px-4 py-2 rounded-full hover:bg-[#3be477] transition shrink-0">Cari</button>
+                <button id="btn-lyrics-ytcc" type="button" title="Ambil subtitle/CC bawaan dari video YouTube (100% sinkron video)" class="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3 py-2 rounded-full transition shrink-0 whitespace-nowrap">📺 CC YT</button>
             </div>
             <!-- Kontrol Presisi Timing & Pilihan Versi Lirik -->
             <div id="lyrics-sync-bar" class="hidden mt-2.5 flex flex-wrap items-center justify-between gap-2">
@@ -222,6 +223,8 @@
     let currentLyricsMatchedWithDur = false;
     let currentLyricsManualChoice = false;
     let currentLyricsCandidates = [];
+    let currentLyricsSource = "lrclib";
+    let currentCaptionTracks = [];
     let lyricRafId = 0;
     let clockAnchorYtSec = 0;
     let clockAnchorPerfMs = 0;
@@ -325,9 +328,35 @@
         return lines.sort((a, b) => a.time - b.time);
     }
 
-    function renderVersionSelect(candidates, activeId) {
+    function updateYtCcButtonUI() {
+        const btn = $("btn-lyrics-ytcc");
+        if (!btn) return;
+        const isYt = currentLyricsSource === "youtube";
+        btn.classList.toggle("bg-spotify", isYt);
+        btn.classList.toggle("text-black", isYt);
+        btn.classList.toggle("bg-white/10", !isYt);
+        btn.classList.toggle("text-white", !isYt);
+        btn.textContent = isYt ? "📺 CC YT ✓" : "📺 CC YT";
+    }
+
+    function renderVersionSelect(candidates, activeId, captionTracks, activeLang) {
         const sel = $("lyrics-version-select");
         if (!sel) return;
+        if (currentLyricsSource === "youtube") {
+            if (!Array.isArray(captionTracks) || captionTracks.length <= 1) {
+                sel.classList.add("hidden");
+                sel.innerHTML = "";
+                return;
+            }
+            sel.innerHTML = captionTracks.map(t => {
+                const autoTxt = t.isAuto ? " (Auto)" : "";
+                const label = "CC: " + (t.name || t.code) + autoTxt;
+                const selected = String(t.code).toLowerCase() === String(activeLang || "").toLowerCase() ? " selected" : "";
+                return '<option value="yt:' + esc(t.code) + '"' + selected + '>' + esc(label) + '</option>';
+            }).join("");
+            sel.classList.remove("hidden");
+            return;
+        }
         if (!Array.isArray(candidates) || candidates.length <= 1) {
             sel.classList.add("hidden");
             sel.innerHTML = "";
@@ -337,7 +366,7 @@
             const durTxt = c.duration > 0 ? " (" + fmtSec(c.duration) + ")" : "";
             const label = (c.trackName || "Versi " + (idx + 1)) + (c.artistName ? " - " + c.artistName : "") + durTxt;
             const selected = Number(c.id) === Number(activeId) ? " selected" : "";
-            return '<option value="' + esc(c.id) + '"' + selected + '>' + esc(label) + '</option>';
+            return '<option value="lrc:' + esc(c.id) + '"' + selected + '>' + esc(label) + '</option>';
         }).join("");
         sel.classList.remove("hidden");
     }
@@ -370,6 +399,8 @@
         currentLyricsArtist = displayArtist || "";
         currentLyricsManualChoice = Boolean(options.manual);
         currentLyricsMatchedWithDur = Boolean(options.duration && options.duration > 10);
+        currentLyricsSource = options.source === "yt" ? "youtube" : "lrclib";
+        updateYtCcButtonUI();
         lyricOffsetSec = readSavedOffset(currentLyricsVideoId);
         updateOffsetUI();
 
@@ -380,23 +411,34 @@
         $("lyrics-sync-bar").classList.add("hidden");
         if (!options.keepCandidates) {
             currentLyricsCandidates = [];
-            renderVersionSelect([], null);
+            currentCaptionTracks = [];
+            renderVersionSelect([], null, [], "");
         }
-        $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">Mencari lirik…</p>';
+        $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">' +
+            (options.source === "yt" ? "Mengambil subtitle/CC dari video YouTube…" : "Mencari lirik…") + '</p>';
 
-        if (!options.lrclibId && (!query || !query.trim())) {
+        if (!options.lrclibId && options.source !== "yt" && (!query || !query.trim())) {
             $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">Ketik judul lagu di kotak pencarian lirik di atas.</p>';
+            return;
+        }
+        if (options.source === "yt" && !currentLyricsVideoId) {
+            $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">Putar video YouTube terlebih dahulu untuk mengambil CC/Subtitle-nya.</p>';
             return;
         }
 
         try {
             const params = new URLSearchParams();
-            if (options.lrclibId) {
+            if (options.source === "yt") {
+                params.set("source", "yt");
+                params.set("videoId", currentLyricsVideoId);
+                if (options.lang) params.set("lang", options.lang);
+            } else if (options.lrclibId) {
                 params.set("id", String(options.lrclibId));
             } else {
                 params.set("q", query.trim());
                 if (displayArtist) params.set("artist", displayArtist.trim());
                 if (options.duration && options.duration > 10) params.set("duration", String(Math.round(options.duration)));
+                if (currentLyricsVideoId) params.set("videoId", currentLyricsVideoId);
             }
             const res = await fetch("/api/lyrics?" + params.toString());
             const data = await res.json().catch(() => ({}));
@@ -408,19 +450,27 @@
             }
 
             if (!data.found) {
+                const isYt = options.source === "yt";
                 $("lyrics-body").innerHTML =
                     '<div class="text-center py-12">' +
-                    '<p class="text-white/80 font-bold text-base mb-1">Lirik belum ditemukan</p>' +
-                    '<p class="text-white/60 text-xs">Coba ketik judul lagu & nama artis secara manual di kolom pencarian lirik di atas.</p>' +
+                    '<p class="text-white/80 font-bold text-base mb-1">' +
+                    (isYt ? 'Video ini tidak memiliki Subtitle/CC YouTube' : 'Lirik belum ditemukan') + '</p>' +
+                    '<p class="text-white/60 text-xs">' +
+                    (isYt ? 'Klik tombol "Cari" untuk kembali mencari di database lirik LRCLIB.' : 'Coba ketik judul lagu & nama artis secara manual, atau klik tombol 📺 CC YT di atas.') + '</p>' +
                     '</div>';
                 return;
             }
 
+            currentLyricsSource = data.source === "youtube" ? "youtube" : "lrclib";
+            updateYtCcButtonUI();
             currentLyricsDuration = Number(data.duration) || 0;
             if (!options.keepCandidates && Array.isArray(data.candidates)) {
                 currentLyricsCandidates = data.candidates;
             }
-            renderVersionSelect(currentLyricsCandidates, data.id);
+            if (Array.isArray(data.captionTracks) && data.captionTracks.length > 0) {
+                currentCaptionTracks = data.captionTracks;
+            }
+            renderVersionSelect(currentLyricsCandidates, data.id, currentCaptionTracks, data.ytCaptionLang);
 
             if (data.trackName) $("lyrics-song-title").textContent = data.trackName;
             if (data.artistName) $("lyrics-song-artist").textContent = data.artistName + (data.albumName ? " • " + data.albumName : "");
@@ -436,10 +486,17 @@
                 if (syncedLines.length > 0) {
                     const hasRomaji = Boolean(data.romajiSyncedLyrics);
                     const romLabel = data.hasKorean && !data.hasJapanese ? "Romanisasi" : "Romaji";
-                    const durInfo = currentLyricsDuration > 0 ? " (" + fmtSec(currentLyricsDuration) + ")" : "";
-                    $("lyrics-badge").textContent = hasRomaji
-                        ? "✨ Lirik sinkron" + durInfo + " + " + romLabel + " — klik baris untuk loncat atau atur Timing jika meleset"
-                        : "✨ Lirik sinkron" + durInfo + " — klik baris untuk loncat atau atur Timing jika meleset";
+                    if (currentLyricsSource === "youtube") {
+                        const langTxt = data.ytCaptionName ? " (" + data.ytCaptionName + (data.ytCaptionAuto ? " • Auto" : "") + ")" : "";
+                        $("lyrics-badge").textContent = hasRomaji
+                            ? "📺 Subtitle/CC YouTube" + langTxt + " + " + romLabel + " — sinkron langsung dengan video"
+                            : "📺 Subtitle/CC YouTube" + langTxt + " — sinkron langsung dengan video";
+                    } else {
+                        const durInfo = currentLyricsDuration > 0 ? " (" + fmtSec(currentLyricsDuration) + ")" : "";
+                        $("lyrics-badge").textContent = hasRomaji
+                            ? "✨ Lirik sinkron" + durInfo + " + " + romLabel + " — klik baris untuk loncat atau atur Timing jika meleset"
+                            : "✨ Lirik sinkron" + durInfo + " — klik baris untuk loncat atau atur Timing jika meleset";
+                    }
                     $("lyrics-badge").classList.remove("hidden");
                     $("lyrics-sync-bar").classList.remove("hidden");
                     const box = $("lyrics-body");
@@ -860,16 +917,49 @@
         $("btn-offset-reset").addEventListener("click", () => adjustLyricOffset(0, true));
         $("btn-offset-p100").addEventListener("click", () => adjustLyricOffset(0.1, false));
         $("btn-offset-p500").addEventListener("click", () => adjustLyricOffset(0.5, false));
+        $("btn-lyrics-ytcc").addEventListener("click", () => {
+            const track = current >= 0 ? queue[current] : null;
+            if (currentLyricsSource === "youtube") {
+                const dur = ytPlayer && ytReady && typeof ytPlayer.getDuration === "function" ? (ytPlayer.getDuration() || 0) : 0;
+                const q = $("lyrics-query").value.trim() || (track ? track.title : currentLyricsQuery);
+                loadLyrics(q, track ? track.title : q, track ? track.channel : "", {
+                    duration: dur,
+                    manual: true,
+                    videoId: track ? track.videoId : currentLyricsVideoId
+                });
+            } else {
+                loadLyrics(track ? track.title : currentLyricsQuery, track ? track.title : $("lyrics-song-title").textContent, track ? track.channel : "", {
+                    source: "yt",
+                    manual: true,
+                    keepQueryInput: true,
+                    videoId: track ? track.videoId : currentLyricsVideoId
+                });
+            }
+        });
         $("lyrics-version-select").addEventListener("change", () => {
-            const chosenId = $("lyrics-version-select").value;
-            if (!chosenId) return;
-            loadLyrics(currentLyricsQuery, $("lyrics-song-title").textContent, currentLyricsArtist, {
-                lrclibId: chosenId,
-                manual: true,
-                keepQueryInput: true,
-                keepCandidates: true,
-                videoId: currentLyricsVideoId
-            });
+            const chosen = $("lyrics-version-select").value;
+            if (!chosen) return;
+            const track = current >= 0 ? queue[current] : null;
+            if (chosen.startsWith("yt:")) {
+                const lang = chosen.slice(3);
+                loadLyrics(currentLyricsQuery, track ? track.title : $("lyrics-song-title").textContent, track ? track.channel : currentLyricsArtist, {
+                    source: "yt",
+                    lang,
+                    manual: true,
+                    keepQueryInput: true,
+                    keepCandidates: true,
+                    videoId: currentLyricsVideoId
+                });
+            } else {
+                const chosenId = chosen.startsWith("lrc:") ? chosen.slice(4) : chosen;
+                loadLyrics(currentLyricsQuery, $("lyrics-song-title").textContent, currentLyricsArtist, {
+                    lrclibId: chosenId,
+                    manual: true,
+                    keepQueryInput: true,
+                    keepCandidates: true,
+                    videoId: currentLyricsVideoId
+                });
+            }
         });
 
         $("btn-next").addEventListener("click", () => { if (current + 1 < queue.length) playAt(current + 1); });
