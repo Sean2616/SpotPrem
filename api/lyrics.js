@@ -271,17 +271,255 @@ function summarizeCandidates(ranked) {
   return out;
 }
 
+// ============================================================
+// YOUTUBE CLOSED CAPTIONS (CC) -> LRC CONVERTER
+// ============================================================
+const YT_VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+const YT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+function decodeHtmlEntities(str) {
+  return String(str || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/\u200B/g, '');
+}
+
+function formatLrcTimestamp(ms) {
+  const safeMs = Math.max(0, Math.round(Number(ms) || 0));
+  const totalSec = Math.floor(safeMs / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  const cs = Math.floor((safeMs % 1000) / 10);
+  return `[${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}]`;
+}
+
+function cleanCaptionText(raw) {
+  const text = decodeHtmlEntities(String(raw || ''))
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+  if (/^[\[\(]\s*(music|musik|applause|laughter|instrumental|♪|♫)+\s*[\]\)]$/i.test(text)) return '';
+  if (/^[♪♫\s]+$/.test(text)) return '';
+  return text;
+}
+
+function extractCaptionTracksFromHtml(html) {
+  const marker = '"captionTracks":';
+  const idx = html.indexOf(marker);
+  if (idx === -1) return [];
+  const start = html.indexOf('[', idx + marker.length);
+  if (start === -1) return [];
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+    } else {
+      if (ch === '"') inStr = true;
+      else if (ch === '[') depth += 1;
+      else if (ch === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            const parsed = JSON.parse(html.slice(start, i + 1));
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        }
+      }
+    }
+  }
+  return [];
+}
+
+async function fetchYouTubeCaptionTracks(videoId) {
+  if (!YT_VIDEO_ID_RE.test(videoId)) return [];
+
+  // 1. Coba ambil dari halaman watch YouTube
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
+      headers: {
+        'User-Agent': YT_UA,
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
+    });
+    if (watchRes.ok) {
+      const html = await watchRes.text();
+      const tracks = extractCaptionTracksFromHtml(html);
+      if (tracks.length > 0) return tracks;
+    }
+  } catch { /* fallback ke Innertube */ }
+
+  // 2. Fallback: YouTube Innertube ANDROID player API
+  try {
+    const apiRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/19.29.37 (Linux; U; Android 14) gzip',
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '19.29.37',
+            androidSdkVersion: 34,
+            hl: 'id',
+            gl: 'ID',
+          },
+        },
+      }),
+    });
+    if (apiRes.ok) {
+      const data = await apiRes.json().catch(() => null);
+      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (Array.isArray(tracks) && tracks.length > 0) return tracks;
+    }
+  } catch { /* abaikan */ }
+
+  return [];
+}
+
+function normalizeCaptionTrack(t) {
+  const code = String(t?.languageCode || '').trim();
+  const isAuto = t?.kind === 'asr';
+  const rawName = t?.name?.simpleText
+    || (Array.isArray(t?.name?.runs) ? t.name.runs.map((r) => r.text).join('') : '')
+    || code.toUpperCase();
+  return {
+    code,
+    name: String(rawName || code).trim(),
+    isAuto,
+    baseUrl: String(t?.baseUrl || '').trim(),
+  };
+}
+
+function pickCaptionTrack(tracks, preferredLang) {
+  const list = tracks.map(normalizeCaptionTrack).filter((t) => t.code && t.baseUrl);
+  if (list.length === 0) return { chosen: null, list: [] };
+
+  if (preferredLang) {
+    const pref = preferredLang.toLowerCase();
+    const exact = list.find((t) => t.code.toLowerCase() === pref && !t.isAuto)
+      || list.find((t) => t.code.toLowerCase() === pref);
+    if (exact) return { chosen: exact, list };
+  }
+
+  // Prioritaskan caption manual (resmi dari channel MV) dibanding auto-generated (asr)
+  const manual = list.filter((t) => !t.isAuto);
+  const pool = manual.length > 0 ? manual : list;
+
+  // Di antara manual, prioritaskan bahasa asli umum lagu (id, en, ja, ko) lalu fallback ke yang pertama
+  const prefOrder = ['id', 'en', 'en-us', 'en-gb', 'ja', 'ko'];
+  for (const lang of prefOrder) {
+    const match = pool.find((t) => t.code.toLowerCase() === lang);
+    if (match) return { chosen: match, list };
+  }
+  return { chosen: pool[0], list };
+}
+
+function captionJson3ToLrc(json) {
+  const events = Array.isArray(json?.events) ? json.events : [];
+  const lines = [];
+  let lastText = '';
+  let lastMs = -1000;
+
+  for (const ev of events) {
+    if (!Array.isArray(ev?.segs) || typeof ev.tStartMs !== 'number') continue;
+    const raw = ev.segs.map((s) => s?.utf8 || '').join('');
+    const text = cleanCaptionText(raw);
+    if (!text) continue;
+    if (text === lastText && Math.abs(ev.tStartMs - lastMs) < 1500) continue;
+    lines.push(`${formatLrcTimestamp(ev.tStartMs)} ${text}`);
+    lastText = text;
+    lastMs = ev.tStartMs;
+  }
+  return lines.join('\n');
+}
+
+function captionXmlToLrc(xml) {
+  const lines = [];
+  const re = /<text\b[^>]*start="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g;
+  let m;
+  while ((m = re.exec(xml)) !== null) {
+    const startSec = Number.parseFloat(m[1]);
+    if (!Number.isFinite(startSec)) continue;
+    const text = cleanCaptionText(m[2].replace(/<[^>]+>/g, ''));
+    if (!text) continue;
+    lines.push(`${formatLrcTimestamp(startSec * 1000)} ${text}`);
+  }
+  return lines.join('\n');
+}
+
+async function fetchYouTubeCaptionsLrc(videoId, preferredLang) {
+  const rawTracks = await fetchYouTubeCaptionTracks(videoId);
+  const { chosen, list } = pickCaptionTrack(rawTracks, preferredLang);
+  if (!chosen) return null;
+
+  let lrc = '';
+  // 1. Coba format json3 (presisi milidetik)
+  try {
+    const jsonUrl = new URL(chosen.baseUrl);
+    jsonUrl.searchParams.set('fmt', 'json3');
+    const r = await fetch(jsonUrl.toString(), { headers: { 'User-Agent': YT_UA } });
+    if (r.ok) {
+      const txt = await r.text();
+      if (txt && txt.trim().startsWith('{')) {
+        lrc = captionJson3ToLrc(JSON.parse(txt));
+      }
+    }
+  } catch { /* fallback ke XML */ }
+
+  // 2. Fallback XML bawaan YouTube
+  if (!lrc) {
+    try {
+      const r = await fetch(chosen.baseUrl, { headers: { 'User-Agent': YT_UA } });
+      if (r.ok) {
+        const xml = await r.text();
+        lrc = captionXmlToLrc(xml);
+      }
+    } catch { /* abaikan */ }
+  }
+
+  if (!lrc) return null;
+
+  const captionTracks = list.map(({ code, name, isAuto }) => ({ code, name, isAuto }));
+  return {
+    syncedLyrics: lrc,
+    langCode: chosen.code,
+    langName: chosen.name,
+    isAuto: chosen.isAuto,
+    captionTracks,
+  };
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return lib.methodNotAllowed(res, 'GET');
 
   const rawId = getQueryParam(req, 'id').trim();
   const rawQ = getQueryParam(req, 'q').trim().slice(0, 160);
   const rawArtist = cleanArtistHint(getQueryParam(req, 'artist').trim().slice(0, 100));
+  const rawVideoId = getQueryParam(req, 'videoId').trim();
+  const videoId = YT_VIDEO_ID_RE.test(rawVideoId) ? rawVideoId : '';
+  const sourceParam = getQueryParam(req, 'source').trim().toLowerCase();
+  const langParam = getQueryParam(req, 'lang').trim().slice(0, 16);
   const durRaw = Number.parseFloat(getQueryParam(req, 'duration'));
   const targetDuration = Number.isFinite(durRaw) && durRaw > 0 ? durRaw : 0;
 
-  if (!rawQ && !rawId) {
-    return res.status(400).json({ ok: false, error: 'Parameter q atau id wajib diisi.' });
+  if (!rawQ && !rawId && !videoId) {
+    return res.status(400).json({ ok: false, error: 'Parameter q, id, atau videoId wajib diisi.' });
   }
 
   const cleaned = cleanSongQuery(rawQ) || rawQ;
@@ -290,27 +528,65 @@ module.exports = async (req, res) => {
   try {
     let best = null;
     let candidates = [];
+    let source = 'lrclib';
+    let ytMeta = null;
 
-    if (rawId) {
-      best = await fetchLrclibById(rawId);
-    }
+    // Mode khusus YouTube CC (diminta langsung oleh user via tombol CC YouTube)
+    if (sourceParam === 'yt' && videoId) {
+      ytMeta = await fetchYouTubeCaptionsLrc(videoId, langParam);
+      if (ytMeta && ytMeta.syncedLyrics) {
+        source = 'youtube';
+        best = {
+          id: null,
+          duration: Math.round(targetDuration),
+          trackName: '',
+          artistName: '',
+          albumName: '',
+          syncedLyrics: ytMeta.syncedLyrics,
+          plainLyrics: '',
+        };
+      }
+    } else {
+      if (rawId) {
+        best = await fetchLrclibById(rawId);
+      }
 
-    if (!best && cleaned) {
-      let items = await queryLrclib(cleaned);
-      let ranked = rankCandidates(items, matchOpts);
-      best = ranked[0] || null;
-      candidates = summarizeCandidates(ranked);
+      if (!best && cleaned) {
+        let items = await queryLrclib(cleaned);
+        let ranked = rankCandidates(items, matchOpts);
+        best = ranked[0] || null;
+        candidates = summarizeCandidates(ranked);
 
-      if (!best && cleaned.includes(' - ')) {
-        const parts = cleaned.split(' - ').map((s) => s.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-          const titleOnly = parts[1].replace(/\b(feat\.?|ft\.?)\s+.*$/i, '').trim();
-          if (titleOnly) {
-            items = await queryLrclib(titleOnly);
-            ranked = rankCandidates(items, { targetDuration, query: titleOnly, artist: rawArtist || parts[0] });
-            best = ranked[0] || null;
-            candidates = summarizeCandidates(ranked);
+        if (!best && cleaned.includes(' - ')) {
+          const parts = cleaned.split(' - ').map((s) => s.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const titleOnly = parts[1].replace(/\b(feat\.?|ft\.?)\s+.*$/i, '').trim();
+            if (titleOnly) {
+              items = await queryLrclib(titleOnly);
+              ranked = rankCandidates(items, { targetDuration, query: titleOnly, artist: rawArtist || parts[0] });
+              best = ranked[0] || null;
+              candidates = summarizeCandidates(ranked);
+            }
           }
+        }
+      }
+
+      // Auto-fallback ke YouTube CC jika LRCLIB tidak punya lirik sinkron & videoId tersedia
+      const hasLrclibSynced = Boolean(best && typeof best.syncedLyrics === 'string' && best.syncedLyrics.trim());
+      if (!hasLrclibSynced && videoId) {
+        const ytFallback = await fetchYouTubeCaptionsLrc(videoId, langParam);
+        if (ytFallback && ytFallback.syncedLyrics) {
+          source = 'youtube';
+          ytMeta = ytFallback;
+          best = {
+            id: null,
+            duration: Math.round(targetDuration),
+            trackName: best?.trackName || '',
+            artistName: best?.artistName || '',
+            albumName: best?.albumName || '',
+            syncedLyrics: ytFallback.syncedLyrics,
+            plainLyrics: best?.plainLyrics || '',
+          };
         }
       }
     }
@@ -320,6 +596,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({
         ok: true,
         found: false,
+        source: sourceParam === 'yt' ? 'youtube' : 'lrclib',
         query: cleaned,
       });
     }
@@ -347,6 +624,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       ok: true,
       found: true,
+      source,
       id: best.id || null,
       duration: Math.round(Number(best.duration) || 0),
       query: cleaned,
@@ -360,6 +638,10 @@ module.exports = async (req, res) => {
       romajiSyncedLyrics,
       romajiPlainLyrics,
       candidates,
+      ytCaptionLang: ytMeta ? ytMeta.langCode : '',
+      ytCaptionName: ytMeta ? ytMeta.langName : '',
+      ytCaptionAuto: ytMeta ? Boolean(ytMeta.isAuto) : false,
+      captionTracks: ytMeta ? ytMeta.captionTracks : [],
     });
   } catch (e) {
     return res.status(500).json({
