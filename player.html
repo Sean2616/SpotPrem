@@ -31,6 +31,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border: 3px solid #121212; border-radius: 8px; }
         .hero-grad { background: linear-gradient(180deg, #1d4d31 0%, #14351f 45%, #121212 100%); }
+        .lyrics-grad { background: linear-gradient(180deg, #1a3f2a 0%, #111f17 45%, #0a0a0a 100%); }
         input[type="range"] { -webkit-appearance: none; appearance: none; height: 5px; border-radius: 999px; background: #4d4d4d; outline: none; cursor: pointer; touch-action: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
         input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
@@ -38,7 +39,7 @@
         #yt-stage.mini-mode {
             position: fixed;
             right: 12px;
-            bottom: 124px;
+            bottom: 128px;
             width: 220px;
             margin-top: 0;
             padding: 8px;
@@ -75,7 +76,7 @@
         <section class="mt-4">
             <div class="hero-grad rounded-xl px-5 py-6 md:px-8 border border-white/10">
                 <h2 class="text-2xl md:text-4xl font-black tracking-tight mb-1">Putar Lagu <span class="text-spotify">Full</span> Gratis</h2>
-                <p class="text-white/80 text-sm mb-5">Cari judul lagu, nama artis, atau tempel langsung link YouTube — putar lagu penuh tanpa login.</p>
+                <p class="text-white/80 text-sm mb-5">Cari judul lagu, nama artis, atau tempel langsung link YouTube — putar lagu penuh lengkap dengan lirik sinkron tanpa login.</p>
                 <div class="flex flex-col sm:flex-row gap-2 max-w-2xl">
                     <label class="flex items-center gap-3 bg-white text-black rounded-full px-5 py-3 flex-1 shadow-lg">
                         <svg viewBox="0 0 24 24" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8" stroke-linecap="round"/></svg>
@@ -98,6 +99,7 @@
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <span id="yt-stage-label" class="text-[11px] font-bold text-spotify uppercase tracking-wider truncate">⚡ Hemat Kuota (Auto 144p/240p)</span>
                     <div class="flex items-center gap-2 shrink-0">
+                        <button id="btn-open-lyrics-stage" type="button" class="text-[11px] font-bold bg-spotify/20 hover:bg-spotify/30 text-spotify px-2.5 py-1 rounded-full transition">🎤 Lirik</button>
                         <button id="btn-mini" type="button" class="text-[11px] font-bold bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-full transition">Mode Mini</button>
                         <a id="yt-open-link" href="#" target="_blank" rel="noopener" class="text-[11px] font-semibold text-spotifyGray hover:text-white hover:underline">YouTube ↗</a>
                     </div>
@@ -108,48 +110,39 @@
             </div>
 
             <div id="results" class="mt-4 space-y-1"></div>
+            <p id="results-hint" class="text-spotifyGray text-sm font-semibold px-2 py-10 text-center">Ketik judul lagu, tempel link YouTube, atau pilih genre di atas untuk mulai memutar lagu.</p>
             <p id="results-empty" class="hidden text-spotifyGray text-sm font-semibold px-2 py-8 text-center">Tidak ada hasil. Coba kata kunci lain atau tempel link YouTube langsung.</p>
         </section>
 
-        <!-- ===== Spotify Embed: tempel link ===== -->
-        <section class="mt-8">
-            <div class="rounded-xl px-5 py-6 md:px-8 bg-[#121212] border border-white/10">
-                <h2 class="text-xl md:text-2xl font-black tracking-tight mb-1">Putar dari <span class="text-spotify">Spotify</span> Embed</h2>
-                <p class="text-white/70 text-sm mb-5">Tempel link lagu, album, playlist, artis, atau podcast Spotify di bawah ini — player resminya langsung tampil di sini. Belum login Spotify = cuplikan 30 detik; sudah login Spotify di browser ini = bisa putar penuh.</p>
-                <div class="flex flex-col sm:flex-row gap-2 max-w-2xl">
-                    <label class="flex items-center gap-3 bg-white text-black rounded-full px-5 py-3 flex-1 shadow-lg">
-                        <span class="text-base shrink-0">🔗</span>
-                        <input id="sp-link" type="text" placeholder="Tempel link Spotify di sini… (mis. https://open.spotify.com/track/…)" class="bg-transparent outline-none text-sm w-full placeholder:text-neutral-500 font-semibold">
-                    </label>
-                    <button id="sp-go" class="bg-spotify text-black font-bold text-sm px-6 py-3 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-lg shrink-0">▶&ensp;Putar</button>
-                </div>
-                <p id="sp-error" class="hidden mt-3 text-sm font-semibold text-red-400">Link-nya belum dikenali. Pastikan link dari Spotify: open.spotify.com/track/…, /album/…, /playlist/…, /artist/…, /episode/…, atau /show/…</p>
-                <div class="flex flex-wrap gap-2 mt-4">
-                    <span class="text-white/60 text-sm font-semibold py-1.5">Coba cepat:</span>
-                    <button data-sp-preset="https://open.spotify.com/playlist/1OiiFyV4pJ7Pl5yhB4OHLO" class="bg-white/15 hover:bg-white/25 text-sm font-bold px-4 py-1.5 rounded-full transition">🎵 Top 50 Indonesia</button>
-                </div>
-                <div class="mt-5 relative z-0 isolate rounded-xl overflow-hidden bg-black">
-                    <iframe id="sp-frame" title="Spotify Embed" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/1OiiFyV4pJ7Pl5yhB4OHLO?utm_source=generator&theme=0" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                </div>
-                <p id="sp-now" class="mt-3 text-[13px] text-white/60 font-semibold">Sedang tampil: Playlist • Top 50 Indonesia (resmi Spotify)</p>
-                <div class="flex flex-wrap items-center gap-2 mt-4">
-                    <a id="sp-login" href="https://accounts.spotify.com/login" target="_blank" rel="noopener" class="bg-spotify text-black font-bold text-sm px-5 py-2.5 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-lg">Login ke Spotify</a>
-                    <button id="sp-reload" class="bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-5 py-2.5 rounded-full border border-white/30 transition">🔄 Muat Ulang Player</button>
-                </div>
-                <p class="mt-3 text-[13px] text-white/60 font-semibold leading-relaxed">Mau putar penuh di Spotify Embed? Klik <b class="text-white">Login ke Spotify</b> lalu masuk memakai akun Premium — misalnya akun dari daftar di halaman utama. Setelah itu kembali ke tab ini: player otomatis dimuat ulang, atau klik <b class="text-white">Muat Ulang Player</b>.</p>
-                <div id="sp-desktop-note" class="hidden mt-4 bg-[#2a1a05] border border-yellow-500/40 rounded-lg px-4 py-3 text-[13px] leading-relaxed text-yellow-100/90">
-                    <p class="font-bold text-yellow-300 text-sm mb-1">📱 Kamu sedang memakai HP</p>
-                    <p>Di mode HP, player Spotify Embed hanya memutar <b>cuplikan 30 detik</b> (gunakan pemutar YouTube di atas untuk lagu full tanpa login). Kalau ingin putar penuh di Spotify Embed, ubah browser ke <b>mode Desktop</b>: <b>Chrome</b> menu <b>⋮</b> → centang <b>“Situs desktop”</b>; <b>Safari</b> tombol <b>“aA”</b> → <b>“Minta Situs Web Desktop”</b>.</p>
-                </div>
-            </div>
-        </section>
-
-        <p class="text-[11px] text-spotifyGray mt-10 leading-relaxed">Pemutar lagu full menggunakan YouTube IFrame Player API resmi. SpotPrem bukan situs resmi dan tidak berafiliasi dengan Spotify maupun YouTube.</p>
+        <p class="text-[11px] text-spotifyGray mt-10 leading-relaxed">Pemutar lagu full menggunakan YouTube IFrame Player API resmi, dan lirik sinkron didukung oleh katalog terbuka LRCLIB. SpotPrem bukan situs resmi dan tidak berafiliasi dengan Spotify maupun YouTube.</p>
     </main>
 
+    <!-- ===== Halaman / Panel Lirik Sinkron (ala Spotify) ===== -->
+    <div id="lyrics-view" class="hidden fixed inset-x-0 top-0 bottom-[118px] md:bottom-[86px] z-[65] lyrics-grad flex flex-col">
+        <div class="max-w-3xl w-full mx-auto px-4 pt-4 pb-3 border-b border-white/10 shrink-0">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-spotify">🎤 Lirik Lagu</p>
+                    <h2 id="lyrics-song-title" class="font-black text-base md:text-lg truncate">Belum ada lagu diputar</h2>
+                    <p id="lyrics-song-artist" class="text-xs text-white/70 truncate"></p>
+                </div>
+                <button id="btn-close-lyrics" type="button" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2 rounded-full shrink-0 transition">✕ Tutup</button>
+            </div>
+            <!-- Pencarian manual lirik jika judul YouTube kurang cocok -->
+            <div class="flex gap-2 mt-3">
+                <input id="lyrics-query" type="text" placeholder="Judul lirik kurang cocok? Ketik judul lagu asli…" class="flex-1 bg-black/40 border border-white/15 focus:border-spotify rounded-full px-4 py-2 text-xs text-white placeholder:text-white/50 outline-none">
+                <button id="btn-lyrics-search" type="button" class="bg-spotify text-black font-bold text-xs px-4 py-2 rounded-full hover:bg-[#3be477] transition shrink-0">Cari Lirik</button>
+            </div>
+            <p id="lyrics-badge" class="hidden mt-2 text-[11px] font-semibold text-white/60"></p>
+        </div>
+        <div id="lyrics-body" class="flex-1 overflow-y-auto px-4 py-6 max-w-3xl w-full mx-auto space-y-3">
+            <p class="text-white/60 text-sm font-semibold text-center py-12">Pilih dan putar lagu terlebih dahulu untuk menampilkan liriknya.</p>
+        </div>
+    </div>
+
     <!-- ===== Bar pemutar bawah ===== -->
-    <div id="playerbar" class="fixed bottom-0 inset-x-0 z-[60] bg-[#181818] border-t border-white/10" style="transform: translateZ(0);">
-        <div class="max-w-5xl mx-auto px-4 py-2.5 md:py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-2">
+    <div id="playerbar" class="fixed bottom-0 inset-x-0 z-[70] bg-[#181818] border-t border-white/10" style="transform: translateZ(0);">
+        <div class="max-w-5xl mx-auto px-4 py-2.5 md:py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-x-3 gap-y-2">
             <div class="flex items-center gap-3 min-w-0">
                 <img id="np-cover" alt="" class="w-12 h-12 md:w-14 md:h-14 rounded bg-[#2a2a2a] object-cover shrink-0">
                 <div class="min-w-0">
@@ -157,11 +150,12 @@
                     <p id="np-artists" class="text-spotifyGray text-xs truncate">Pilih lagu untuk mulai</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4 md:gap-5 md:flex-col md:gap-1.5">
-                <div class="flex items-center gap-4 md:gap-5">
+            <div class="flex items-center gap-3 md:flex-col md:gap-1.5">
+                <div class="flex items-center gap-3 md:gap-5">
                     <button id="btn-prev" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Sebelumnya">⏮</button>
                     <button id="btn-toggle" class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-base hover:scale-105 transition" aria-label="Putar/Jeda">▶</button>
                     <button id="btn-next" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Berikutnya">⏭</button>
+                    <button id="btn-lyrics-mobile" type="button" class="md:hidden text-xs font-bold bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-full transition" aria-label="Buka Lirik">🎤</button>
                 </div>
                 <div class="hidden md:flex items-center gap-2 text-[11px] text-spotifyGray font-semibold w-[380px] max-w-[46vw]">
                     <span id="t-cur">0:00</span>
@@ -169,9 +163,10 @@
                     <span id="t-dur">0:00</span>
                 </div>
             </div>
-            <div class="hidden md:flex items-center gap-2 justify-end">
+            <div class="hidden md:flex items-center gap-3 justify-end">
+                <button id="btn-lyrics" type="button" class="text-xs font-bold bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full transition">🎤 Lirik</button>
                 <span class="text-spotifyGray text-sm">🔊</span>
-                <input id="vol" type="range" min="0" max="100" value="80" class="w-28" aria-label="Volume">
+                <input id="vol" type="range" min="0" max="100" value="80" class="w-24" aria-label="Volume">
             </div>
             <!-- Seekbar khusus mobile (tampil penuh di bawah kontrol) -->
             <div class="col-span-2 flex md:hidden items-center gap-2.5 text-[11px] text-spotifyGray font-semibold pb-0.5">
@@ -183,7 +178,7 @@
     </div>
 
     <script>
-    // ===== Pemutar Lagu Full (YouTube IFrame Player API) =====
+    // ===== Pemutar Lagu Full (YouTube IFrame Player API) + Lirik Sinkron =====
     const $ = id => document.getElementById(id);
     const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const fmtSec = sec => {
@@ -201,6 +196,12 @@
     let pendingVideoId = null;
     let isPlaying = false;
     let progressTimer = null;
+
+    // State lirik
+    let lyricsOpen = false;
+    let syncedLines = [];
+    let activeLyricIdx = -1;
+    let lyricsReqId = 0;
 
     ["spotprem_sp_access", "spotprem_sp_refresh", "spotprem_sp_expires", "spotprem_sp_verifier"].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
 
@@ -228,6 +229,144 @@
             }
         } catch (e) {}
         return null;
+    }
+
+    // ===== Parser & Renderer Lirik Sinkron (LRC) =====
+    function parseLrc(lrc) {
+        const lines = [];
+        const rawLines = String(lrc || "").split(/\r?\n/);
+        const timeRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+        for (const raw of rawLines) {
+            const matches = [...raw.matchAll(timeRe)];
+            if (matches.length === 0) continue;
+            const text = raw.replace(timeRe, "").trim();
+            if (!text) continue;
+            for (const m of matches) {
+                const min = Number(m[1]);
+                const sec = Number(m[2]);
+                const frac = m[3] ? Number(m[3].padEnd(3, "0")) / 1000 : 0;
+                lines.push({ time: min * 60 + sec + frac, text });
+            }
+        }
+        return lines.sort((a, b) => a.time - b.time);
+    }
+
+    function setLyricsOpen(open) {
+        lyricsOpen = Boolean(open);
+        $("lyrics-view").classList.toggle("hidden", !lyricsOpen);
+        [$("btn-lyrics"), $("btn-lyrics-mobile")].forEach(btn => {
+            if (!btn) return;
+            btn.classList.toggle("bg-spotify", lyricsOpen);
+            btn.classList.toggle("text-black", lyricsOpen);
+            btn.classList.toggle("bg-white/10", !lyricsOpen);
+            btn.classList.toggle("text-white", !lyricsOpen);
+        });
+        if (lyricsOpen && activeLyricIdx >= 0) {
+            const el = document.querySelector('[data-lyric-idx="' + activeLyricIdx + '"]');
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }
+
+    async function loadLyrics(query, displayTitle, displayArtist) {
+        const reqId = ++lyricsReqId;
+        syncedLines = [];
+        activeLyricIdx = -1;
+
+        $("lyrics-song-title").textContent = displayTitle || query || "Lirik Lagu";
+        $("lyrics-song-artist").textContent = displayArtist || "";
+        $("lyrics-query").value = query || "";
+        $("lyrics-badge").classList.add("hidden");
+        $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">Mencari lirik…</p>';
+
+        if (!query || !query.trim()) {
+            $("lyrics-body").innerHTML = '<p class="text-white/60 text-sm font-semibold text-center py-12">Ketik judul lagu di kotak pencarian lirik di atas.</p>';
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/lyrics?q=" + encodeURIComponent(query.trim()));
+            const data = await res.json().catch(() => ({}));
+            if (reqId !== lyricsReqId) return;
+
+            if (!res.ok || !data.ok) {
+                $("lyrics-body").innerHTML = '<p class="text-red-300 text-sm font-semibold text-center py-12">Gagal memuat lirik. Coba lagi sebentar.</p>';
+                return;
+            }
+
+            if (!data.found) {
+                $("lyrics-body").innerHTML =
+                    '<div class="text-center py-12">' +
+                    '<p class="text-white/80 font-bold text-base mb-1">Lirik belum ditemukan</p>' +
+                    '<p class="text-white/60 text-xs">Coba ketik judul lagu & nama artis secara manual di kolom pencarian lirik di atas.</p>' +
+                    '</div>';
+                return;
+            }
+
+            if (data.trackName) $("lyrics-song-title").textContent = data.trackName;
+            if (data.artistName) $("lyrics-song-artist").textContent = data.artistName + (data.albumName ? " • " + data.albumName : "");
+
+            if (data.syncedLyrics) {
+                syncedLines = parseLrc(data.syncedLyrics);
+                if (syncedLines.length > 0) {
+                    $("lyrics-badge").textContent = "✨ Lirik sinkron aktif — klik baris mana saja untuk loncat ke detiknya";
+                    $("lyrics-badge").classList.remove("hidden");
+                    const box = $("lyrics-body");
+                    box.innerHTML = "";
+                    syncedLines.forEach((line, idx) => {
+                        const p = document.createElement("button");
+                        p.type = "button";
+                        p.setAttribute("data-lyric-idx", idx);
+                        p.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/55 hover:text-spotify transition-all duration-200 py-1";
+                        p.textContent = line.text;
+                        p.addEventListener("click", () => {
+                            if (ytPlayer && ytReady && typeof ytPlayer.seekTo === "function") {
+                                ytPlayer.seekTo(line.time, true);
+                                if (!isPlaying && typeof ytPlayer.playVideo === "function") ytPlayer.playVideo();
+                            }
+                        });
+                        box.appendChild(p);
+                    });
+                    return;
+                }
+            }
+
+            if (data.plainLyrics) {
+                $("lyrics-badge").textContent = "📄 Lirik teks (belum tersedia versi sinkron untuk lagu ini)";
+                $("lyrics-badge").classList.remove("hidden");
+                const lines = data.plainLyrics.split(/\r?\n/);
+                $("lyrics-body").innerHTML = lines
+                    .map(l => l.trim()
+                        ? '<p class="text-lg md:text-xl font-bold leading-relaxed text-white/85">' + esc(l) + '</p>'
+                        : '<div class="h-3"></div>')
+                    .join("");
+            }
+        } catch (e) {
+            if (reqId !== lyricsReqId) return;
+            $("lyrics-body").innerHTML = '<p class="text-red-300 text-sm font-semibold text-center py-12">Gagal mengambil lirik. Periksa koneksi internetmu.</p>';
+        }
+    }
+
+    function syncLyrics(currentSec) {
+        if (syncedLines.length === 0) return;
+        let idx = -1;
+        for (let i = 0; i < syncedLines.length; i++) {
+            if (currentSec + 0.25 >= syncedLines[i].time) idx = i;
+            else break;
+        }
+        if (idx === activeLyricIdx) return;
+        activeLyricIdx = idx;
+
+        const nodes = $("lyrics-body").querySelectorAll("[data-lyric-idx]");
+        nodes.forEach((node, i) => {
+            if (i === idx) {
+                node.className = "block w-full text-left text-2xl md:text-3xl font-black leading-snug text-white transition-all duration-200 py-1.5";
+                if (lyricsOpen) node.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else if (i < idx) {
+                node.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/35 hover:text-spotify transition-all duration-200 py-1";
+            } else {
+                node.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/60 hover:text-spotify transition-all duration-200 py-1";
+            }
+        });
     }
 
     // Muat YouTube IFrame API resmi
@@ -259,10 +398,12 @@
         const btn = $("btn-mini");
         const label = $("yt-stage-label");
         const openLink = $("yt-open-link");
+        const lyricsStageBtn = $("btn-open-lyrics-stage");
         stage.classList.toggle("mini-mode", enabled);
         btn.textContent = enabled ? "Perbesar" : "Mode Mini";
         label.textContent = enabled ? "⚡ Mini" : "⚡ Hemat Kuota (Auto 144p/240p)";
         openLink.classList.toggle("hidden", enabled);
+        lyricsStageBtn.classList.toggle("hidden", enabled);
     }
 
     window.onYouTubeIframeAPIReady = function () {
@@ -341,12 +482,21 @@
             const cur = ytPlayer.getCurrentTime() || 0;
             const dur = ytPlayer.getDuration() || 0;
             syncSeekUI(cur, dur);
-        }, 500);
+            syncLyrics(cur);
+        }, 300);
     }
 
     async function doSearch(raw) {
         const q = (raw || "").trim();
-        if (!q) { queue = []; renderResults(); return; }
+        if (!q) {
+            queue = [];
+            $("results").innerHTML = "";
+            $("results-empty").classList.add("hidden");
+            $("results-hint").classList.remove("hidden");
+            return;
+        }
+
+        $("results-hint").classList.add("hidden");
 
         // Jika user menempel link YouTube langsung -> putar langsung tanpa butuh API key
         const directId = extractYouTubeId(q);
@@ -393,7 +543,7 @@
     function renderResults() {
         const box = $("results");
         box.innerHTML = "";
-        $("results-empty").classList.toggle("hidden", queue.length > 0);
+        $("results-empty").classList.toggle("hidden", queue.length > 0 || !$("results-hint").classList.contains("hidden"));
         queue.forEach((t, i) => {
             const row = document.createElement("button");
             row.className = "w-full flex items-center gap-4 px-3 py-2.5 rounded-lg hover:bg-spotifyHover text-left transition group" + (i === current ? " playing-row" : "");
@@ -427,6 +577,7 @@
             pendingVideoId = t.videoId;
         }
         renderResults();
+        loadLyrics(t.title, t.title, t.channel);
     }
 
     function togglePlay() {
@@ -437,11 +588,10 @@
     }
 
     (function init() {
-        let timer = null;
         $("q").addEventListener("keydown", e => {
-            if (e.key === "Enter") { clearTimeout(timer); doSearch($("q").value); }
+            if (e.key === "Enter") doSearch($("q").value);
         });
-        $("btn-search").addEventListener("click", () => { clearTimeout(timer); doSearch($("q").value); });
+        $("btn-search").addEventListener("click", () => doSearch($("q").value));
         $("q").addEventListener("paste", () => {
             setTimeout(() => {
                 if (extractYouTubeId($("q").value)) doSearch($("q").value);
@@ -456,6 +606,17 @@
         $("btn-mini").addEventListener("click", () => {
             setMiniMode(!$("yt-stage").classList.contains("mini-mode"));
         });
+        $("btn-open-lyrics-stage").addEventListener("click", () => setLyricsOpen(true));
+        $("btn-lyrics").addEventListener("click", () => setLyricsOpen(!lyricsOpen));
+        $("btn-lyrics-mobile").addEventListener("click", () => setLyricsOpen(!lyricsOpen));
+        $("btn-close-lyrics").addEventListener("click", () => setLyricsOpen(false));
+        $("btn-lyrics-search").addEventListener("click", () => {
+            loadLyrics($("lyrics-query").value, $("lyrics-query").value, "");
+        });
+        $("lyrics-query").addEventListener("keydown", e => {
+            if (e.key === "Enter") loadLyrics($("lyrics-query").value, $("lyrics-query").value, "");
+        });
+
         $("btn-next").addEventListener("click", () => { if (current + 1 < queue.length) playAt(current + 1); });
         $("btn-prev").addEventListener("click", () => { if (current > 0) playAt(current - 1); });
         $("vol").addEventListener("input", e => {
@@ -491,75 +652,6 @@
         }
         bindSeek($("seek"));
         bindSeek($("seek-mobile"));
-        doSearch("top hits indonesia official audio");
-    })();
-    </script>
-
-    <script>
-    // ===== Spotify Embed: ubah link Spotify biasa menjadi URL embed =====
-    (function () {
-        var TYPES = { track: 'Lagu', album: 'Album', playlist: 'Playlist', artist: 'Artis', episode: 'Episode podcast', show: 'Podcast' };
-        function spotifyEmbedUrl(input) {
-            if (!input) return null;
-            var s = String(input).trim();
-            var type = null, id = null, m;
-            if (s.indexOf('spotify:') === 0) {
-                m = s.split(':');
-                if (m.length >= 3) { type = m[1]; id = m[2]; }
-            } else {
-                var u;
-                try { u = new URL(s); } catch (e) { return null; }
-                if (u.hostname !== 'open.spotify.com') return null;
-                var parts = u.pathname.split('/').filter(Boolean);
-                if (parts[0] === 'embed') parts.shift();
-                if (parts.length && /^intl-[a-z]{2}(-[a-z]{2})?$/i.test(parts[0])) parts.shift();
-                if (parts.length >= 2) { type = parts[0]; id = parts[1]; }
-            }
-            if (!type || !(type in TYPES)) return null;
-            if (!id || !/^[A-Za-z0-9]{10,}$/.test(id)) return null;
-            return { url: 'https://open.spotify.com/embed/' + type + '/' + id + '?utm_source=generator&theme=0', type: type, id: id };
-        }
-        var input = document.getElementById('sp-link');
-        var frame = document.getElementById('sp-frame');
-        var err = document.getElementById('sp-error');
-        var now = document.getElementById('sp-now');
-        function load(raw, label) {
-            var r = spotifyEmbedUrl(raw);
-            if (!r) { err.classList.remove('hidden'); return false; }
-            err.classList.add('hidden');
-            frame.src = r.url;
-            frame.height = (r.type === 'track' || r.type === 'episode') ? 152 : 352;
-            now.textContent = 'Sedang tampil: ' + TYPES[r.type] + (label ? ' • ' + label : '') + ' (resmi Spotify)';
-            return true;
-        }
-        document.getElementById('sp-go').addEventListener('click', function () { load(input.value); });
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(input.value); });
-        input.addEventListener('paste', function () { setTimeout(function () { load(input.value); }, 50); });
-        document.querySelectorAll('[data-sp-preset]').forEach(function (b) {
-            b.addEventListener('click', function () {
-                input.value = b.getAttribute('data-sp-preset');
-                load(input.value, b.textContent.replace(/^[^\w]+/, '').trim());
-            });
-        });
-        var pendingReload = false;
-        function reloadFrame() {
-            var s = frame.src;
-            frame.src = s;
-            frame.setAttribute('data-reloaded', String(Date.now()));
-        }
-        var loginBtn = document.getElementById('sp-login');
-        if (loginBtn) loginBtn.addEventListener('click', function () { pendingReload = true; });
-        var reloadBtn = document.getElementById('sp-reload');
-        if (reloadBtn) reloadBtn.addEventListener('click', reloadFrame);
-        window.addEventListener('focus', function () {
-            if (pendingReload) { pendingReload = false; reloadFrame(); }
-        });
-        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || '')) {
-            var note = document.getElementById('sp-desktop-note');
-            if (note) note.classList.remove('hidden');
-        }
-        window.__spotifyEmbedUrl = spotifyEmbedUrl;
-        window.__spReloadFrame = reloadFrame;
     })();
     </script>
 </body>
