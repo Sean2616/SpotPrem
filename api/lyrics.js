@@ -1,9 +1,40 @@
 const path = require('path');
 const lib = require('./_lib');
 
-// Deteksi huruf Jepang (Hiragana / Katakana) agar tidak salah memicu pada lagu Mandarin murni
+// Deteksi huruf Jepang (Hiragana / Katakana) dan Korea (Hangul)
 const JAPANESE_KANA_RE = /[\u3040-\u309F\u30A0-\u30FF]/;
+const KOREAN_HANGUL_RE = /[\uAC00-\uD7A3]/;
 const LRC_LINE_RE = /^((?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\])+)\s*(.*)$/;
+
+const KO_INITIALS = [
+  'g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp',
+  's', 'ss', '', 'j', 'jj', 'ch', 'k', 't', 'p', 'h',
+];
+const KO_MEDIALS = [
+  'a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o', 'wa', 'wae',
+  'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu', 'eu', 'ui', 'i',
+];
+const KO_FINALS = [
+  '', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'p', 'l', 'l',
+  'p', 'l', 'm', 'p', 'p', 't', 't', 'ng', 't', 't', 'k', 't', 'p', 't',
+];
+
+function romanizeKorean(text) {
+  let out = '';
+  for (const ch of String(text || '')) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xac00 && code <= 0xd7a3) {
+      const idx = code - 0xac00;
+      const initial = Math.floor(idx / 588);
+      const medial = Math.floor((idx % 588) / 28);
+      const final = idx % 28;
+      out += KO_INITIALS[initial] + KO_MEDIALS[medial] + KO_FINALS[final];
+    } else {
+      out += ch;
+    }
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
 
 let kuroshiroPromise = null;
 
@@ -30,25 +61,32 @@ async function getKuroshiro() {
   return kuroshiroPromise;
 }
 
-async function toRomajiLine(kuroshiro, text) {
+async function toRomanizedLine(kuroshiro, text) {
   if (!text || !text.trim()) return '';
-  if (!JAPANESE_KANA_RE.test(text) && !/[\u4E00-\u9FAF]/.test(text)) {
-    return '';
+  const hasJa = JAPANESE_KANA_RE.test(text) || /[\u4E00-\u9FAF]/.test(text);
+  const hasKo = KOREAN_HANGUL_RE.test(text);
+  if (!hasJa && !hasKo) return '';
+
+  let result = text;
+  if (hasJa && kuroshiro) {
+    try {
+      result = await kuroshiro.convert(result, {
+        to: 'romaji',
+        mode: 'spaced',
+        romajiSystem: 'hepburn',
+      });
+    } catch {
+      // Lanjut ke romanisasi Korea jika ada
+    }
   }
-  try {
-    const out = await kuroshiro.convert(text, {
-      to: 'romaji',
-      mode: 'spaced',
-      romajiSystem: 'hepburn',
-    });
-    return String(out || '').replace(/\s+/g, ' ').trim();
-  } catch {
-    return '';
+  if (hasKo) {
+    result = romanizeKorean(result);
   }
+  return String(result || '').replace(/\s+/g, ' ').trim();
 }
 
 async function convertLrcToRomaji(kuroshiro, lrcText) {
-  if (!kuroshiro || !lrcText) return '';
+  if (!lrcText) return '';
   const lines = String(lrcText).split(/\r?\n/);
   const result = [];
 
@@ -61,14 +99,14 @@ async function convertLrcToRomaji(kuroshiro, lrcText) {
       result.push(tags);
       continue;
     }
-    const romaji = await toRomajiLine(kuroshiro, lyric);
+    const romaji = await toRomanizedLine(kuroshiro, lyric);
     result.push(`${tags} ${romaji || ''}`.trim());
   }
   return result.join('\n');
 }
 
 async function convertPlainToRomaji(kuroshiro, plainText) {
-  if (!kuroshiro || !plainText) return '';
+  if (!plainText) return '';
   const lines = String(plainText).split(/\r?\n/);
   const result = [];
 
@@ -78,7 +116,7 @@ async function convertPlainToRomaji(kuroshiro, plainText) {
       result.push('');
       continue;
     }
-    const romaji = await toRomajiLine(kuroshiro, trimmed);
+    const romaji = await toRomanizedLine(kuroshiro, trimmed);
     result.push(romaji);
   }
   return result.join('\n');
@@ -167,13 +205,14 @@ module.exports = async (req, res) => {
     const syncedLyrics = best.syncedLyrics || '';
     const plainLyrics = best.plainLyrics || '';
     const hasJapanese = JAPANESE_KANA_RE.test(syncedLyrics) || JAPANESE_KANA_RE.test(plainLyrics);
+    const hasKorean = KOREAN_HANGUL_RE.test(syncedLyrics) || KOREAN_HANGUL_RE.test(plainLyrics);
 
     let romajiSyncedLyrics = '';
     let romajiPlainLyrics = '';
 
-    if (hasJapanese) {
-      const kuroshiro = await getKuroshiro();
-      if (kuroshiro) {
+    if (hasJapanese || hasKorean) {
+      const kuroshiro = hasJapanese ? await getKuroshiro() : null;
+      if (kuroshiro || hasKorean) {
         if (syncedLyrics) {
           romajiSyncedLyrics = await convertLrcToRomaji(kuroshiro, syncedLyrics);
         } else if (plainLyrics) {
@@ -188,6 +227,7 @@ module.exports = async (req, res) => {
       found: true,
       query: cleaned,
       hasJapanese,
+      hasKorean,
       trackName: best.trackName || '',
       artistName: best.artistName || '',
       albumName: best.albumName || '',

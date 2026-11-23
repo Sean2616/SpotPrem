@@ -315,8 +315,9 @@
                 }
                 if (syncedLines.length > 0) {
                     const hasRomaji = Boolean(data.romajiSyncedLyrics);
+                    const romLabel = data.hasKorean && !data.hasJapanese ? "Romanisasi" : "Romaji";
                     $("lyrics-badge").textContent = hasRomaji
-                        ? "✨ Lirik sinkron + Romaji aktif — klik baris mana saja untuk loncat ke detiknya"
+                        ? "✨ Lirik sinkron + " + romLabel + " aktif — klik baris mana saja untuk loncat ke detiknya"
                         : "✨ Lirik sinkron aktif — klik baris mana saja untuk loncat ke detiknya";
                     $("lyrics-badge").classList.remove("hidden");
                     const box = $("lyrics-body");
@@ -346,8 +347,9 @@
 
             if (data.plainLyrics) {
                 const hasRomaji = Boolean(data.romajiPlainLyrics);
+                const romLabel = data.hasKorean && !data.hasJapanese ? "Romanisasi" : "Romaji";
                 $("lyrics-badge").textContent = hasRomaji
-                    ? "📄 Lirik teks + Romaji (belum tersedia versi sinkron untuk lagu ini)"
+                    ? "📄 Lirik teks + " + romLabel + " (belum tersedia versi sinkron untuk lagu ini)"
                     : "📄 Lirik teks (belum tersedia versi sinkron untuk lagu ini)";
                 $("lyrics-badge").classList.remove("hidden");
                 const lines = data.plainLyrics.split(/\r?\n/);
