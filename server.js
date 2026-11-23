@@ -45,6 +45,7 @@ const ROUTES = {
   '/api/track': require('./api/track'),
   '/api/copystats': require('./api/copystats'),
   '/api/health': require('./api/health'),
+  '/api/yt-search': require('./api/yt-search'),
   '/api/data-akun': require('./api/data-akun'),
   '/data-akun.js': require('./api/data-akun'),
 };
