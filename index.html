@@ -156,30 +156,7 @@
         </header>
 
         <!-- Main Content -->
-        <main class="px-4 md:px-6 pb-10 flex-1 w-full relative z-0 isolate">
-            <!-- ===== Spotify Embed: playlist unggulan =====
-                 GANTI PLAYLIST: ubah ID playlist di src iframe di bawah
-                 (format: https://open.spotify.com/embed/playlist/<ID>?...) -->
-            <section class="mb-7">
-                <div class="flex items-end justify-between gap-3 mb-3">
-                    <h3 class="text-xl md:text-2xl font-black tracking-tight">🎧 Dengarkan Dulu di Spotify</h3>
-                    <a href="player.html" class="text-spotify text-sm font-bold hover:underline shrink-0">Buka Pemutar →</a>
-                </div>
-                <div class="relative z-0 isolate rounded-xl overflow-hidden bg-black border border-white/10">
-                    <iframe id="home-sp-frame" title="Playlist unggulan Spotify" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/1OiiFyV4pJ7Pl5yhB4OHLO?utm_source=generator&theme=0" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                </div>
-                <p class="mt-2 text-[13px] text-white/60 font-semibold">Playlist • Top 50 Indonesia — lagu-lagu Indonesia terbaik saat ini. Belum login Spotify = cuplikan 30 detik; sudah login = bisa putar penuh.</p>
-                <div class="flex flex-wrap items-center gap-2 mt-3">
-                    <a id="home-sp-login" href="https://accounts.spotify.com/login" target="_blank" rel="noopener" class="bg-spotify text-black font-bold text-sm px-5 py-2.5 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-lg">Login ke Spotify</a>
-                    <button id="home-sp-reload" class="bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-5 py-2.5 rounded-full border border-white/30 transition">🔄 Muat Ulang Player</button>
-                    <span class="text-[13px] text-white/60 font-semibold">Login memakai akun Premium dari daftar di bawah ini (di halaman resmi Spotify, tab baru), lalu kembali ke sini — player otomatis dimuat ulang.</span>
-                </div>
-                <div id="home-sp-desktop-note" class="hidden mt-3 bg-[#2a1a05] border border-yellow-500/40 rounded-lg px-4 py-3 text-[13px] leading-relaxed text-yellow-100/90 max-w-2xl">
-                    <p class="font-bold text-yellow-300 text-sm mb-1">📱 Kamu sedang memakai HP</p>
-                    <p>Di mode HP, player Spotify di website hanya memutar <b>cuplikan 30 detik</b>. Kalau ingin putar musik penuh langsung di website ini, ubah browser ke <b>mode Desktop</b>: <b>Chrome</b> — menu <b>⋮</b> → centang <b>“Situs desktop”</b>; <b>Safari</b> — tombol <b>“aA”</b> → <b>“Minta Situs Web Desktop”</b>. Setelah itu halaman dimuat ulang dan login Spotify kamu terbaca oleh player. Catatan ini otomatis hilang begitu mode Desktop aktif.</p>
-                </div>
-            </section>
-
+        <main class="px-4 md:px-6 pt-5 pb-10 flex-1 w-full relative z-0 isolate">
             <!-- Chips filter ala Spotify -->
             <div class="flex gap-2 flex-wrap mb-5" id="filter-chips">
                 <button data-filter="active" onclick="setFilter('active')" class="chip bg-white text-black text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Aktif</button>
@@ -484,35 +461,6 @@
 
     renderAccounts();
     loadCopyStats();
-</script>
-<script>
-    // Tombol Login Spotify + Muat Ulang Player (section embed homepage):
-    // login terjadi di tab baru (halaman resmi Spotify); saat pengunjung
-    // kembali, fokus ke tab ini memicu muat ulang iframe embed.
-    (function () {
-        var frame = document.getElementById('home-sp-frame');
-        if (!frame) return;
-        var pending = false;
-        function reloadFrame() {
-            var s = frame.src;
-            frame.src = s;
-            frame.setAttribute('data-reloaded', String(Date.now()));
-        }
-        var login = document.getElementById('home-sp-login');
-        if (login) login.addEventListener('click', function () { pending = true; });
-        var btn = document.getElementById('home-sp-reload');
-        if (btn) btn.addEventListener('click', reloadFrame);
-        window.addEventListener('focus', function () {
-            if (pending) { pending = false; reloadFrame(); }
-        });
-        // Note mode Desktop khusus pengunjung HP (user-agent mobile);
-        // sembunyi sendiri begitu mode Desktop aktif.
-        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || '')) {
-            var note = document.getElementById('home-sp-desktop-note');
-            if (note) note.classList.remove('hidden');
-        }
-        window.__homeSpReloadFrame = reloadFrame;
-    })();
 </script>
 </body>
 </html>
