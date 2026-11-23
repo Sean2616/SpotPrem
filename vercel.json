@@ -1,1 +1,17 @@
-{"$schema":"https://openapi.vercel.sh/vercel.json","rewrites":[{"destination":"/api/data-akun","source":"/data-akun.js"}]}
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "server.js": {
+      "includeFiles": "node_modules/kuromoji/dict/**"
+    },
+    "api/lyrics.js": {
+      "includeFiles": "node_modules/kuromoji/dict/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/data-akun.js",
+      "destination": "/api/data-akun"
+    }
+  ]
+}

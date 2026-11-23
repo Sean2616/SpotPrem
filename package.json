@@ -1,1 +1,17 @@
-{"description":"SpotPrem — situs bagi akun Spotify Premium dengan admin online (Vercel + Firebase)","engines":{"node":">=18"},"main":"server.js","name":"spotprem","private":true,"scripts":{"start":"node server.js"},"version":"2.1.0-vercel"}
+{
+  "name": "spotprem",
+  "version": "2.2.0-vercel",
+  "description": "SpotPrem — situs bagi akun Spotify Premium dengan pemutar musik full & lirik Romaji (Vercel + Firebase)",
+  "main": "server.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "kuroshiro": "^1.2.0",
+    "kuroshiro-analyzer-kuromoji": "^1.1.0"
+  }
+}

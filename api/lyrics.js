@@ -1,4 +1,88 @@
+const path = require('path');
 const lib = require('./_lib');
+
+// Deteksi huruf Jepang (Hiragana / Katakana) agar tidak salah memicu pada lagu Mandarin murni
+const JAPANESE_KANA_RE = /[\u3040-\u309F\u30A0-\u30FF]/;
+const LRC_LINE_RE = /^((?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\])+)\s*(.*)$/;
+
+let kuroshiroPromise = null;
+
+async function getKuroshiro() {
+  if (!kuroshiroPromise) {
+    kuroshiroPromise = (async () => {
+      try {
+        const KuroshiroMod = require('kuroshiro');
+        const Kuroshiro = KuroshiroMod.default || KuroshiroMod;
+        const KuromojiMod = require('kuroshiro-analyzer-kuromoji');
+        const KuromojiAnalyzer = KuromojiMod.default || KuromojiMod;
+
+        const dictPath = path.join(path.dirname(require.resolve('kuromoji/package.json')), 'dict');
+        const instance = new Kuroshiro();
+        await instance.init(new KuromojiAnalyzer({ dictPath }));
+        return instance;
+      } catch (err) {
+        console.error('[Lyrics Kuroshiro Init Error]', err && err.message ? err.message : err);
+        kuroshiroPromise = null;
+        return null;
+      }
+    })();
+  }
+  return kuroshiroPromise;
+}
+
+async function toRomajiLine(kuroshiro, text) {
+  if (!text || !text.trim()) return '';
+  if (!JAPANESE_KANA_RE.test(text) && !/[\u4E00-\u9FAF]/.test(text)) {
+    return '';
+  }
+  try {
+    const out = await kuroshiro.convert(text, {
+      to: 'romaji',
+      mode: 'spaced',
+      romajiSystem: 'hepburn',
+    });
+    return String(out || '').replace(/\s+/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
+
+async function convertLrcToRomaji(kuroshiro, lrcText) {
+  if (!kuroshiro || !lrcText) return '';
+  const lines = String(lrcText).split(/\r?\n/);
+  const result = [];
+
+  for (const raw of lines) {
+    const m = raw.match(LRC_LINE_RE);
+    if (!m) continue;
+    const tags = m[1];
+    const lyric = (m[2] || '').trim();
+    if (!lyric) {
+      result.push(tags);
+      continue;
+    }
+    const romaji = await toRomajiLine(kuroshiro, lyric);
+    result.push(`${tags} ${romaji || ''}`.trim());
+  }
+  return result.join('\n');
+}
+
+async function convertPlainToRomaji(kuroshiro, plainText) {
+  if (!kuroshiro || !plainText) return '';
+  const lines = String(plainText).split(/\r?\n/);
+  const result = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      result.push('');
+      continue;
+    }
+    const romaji = await toRomajiLine(kuroshiro, trimmed);
+    result.push(romaji);
+  }
+  return result.join('\n');
+}
 
 function getQueryParam(req, name) {
   if (req.query && req.query[name] !== undefined) {
@@ -14,13 +98,10 @@ function getQueryParam(req, name) {
 
 function cleanSongQuery(raw) {
   return String(raw || '')
-    // Hapus teks dalam kurung/siku yang umum di judul YouTube
-    .replace(/\([^)]*(official|video|audio|lyric|lirik|mv|hd|4k|live|visualizer|version|remix|cover|karaoke|full|hd)[^)]*\)/gi, ' ')
+    .replace(/\([^)]*(official|video|audio|lyric|lirik|mv|hd|4k|live|visualizer|version|remix|cover|karaoke|full)[^)]*\)/gi, ' ')
     .replace(/\[[^\]]*\]/g, ' ')
     .replace(/【[^】]*】/g, ' ')
-    // Hapus akhiran setelah "|" atau "//"
     .replace(/\s*(\||\/\/)\s*.*$/g, ' ')
-    // Hapus kata noise umum
     .replace(/\b(official\s+music\s+video|official\s+video|official\s+audio|official\s+lyric\s+video|music\s+video|lyric\s+video|lirik\s+lagu|full\s+album|audio\s+resmi)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -63,7 +144,6 @@ module.exports = async (req, res) => {
     let items = await queryLrclib(cleaned);
     let best = pickBestMatch(items);
 
-    // Fallback: jika format "Artis - Judul", coba cari judulnya saja
     if (!best && cleaned.includes(' - ')) {
       const parts = cleaned.split(' - ').map((s) => s.trim()).filter(Boolean);
       if (parts.length >= 2) {
@@ -84,16 +164,37 @@ module.exports = async (req, res) => {
       });
     }
 
+    const syncedLyrics = best.syncedLyrics || '';
+    const plainLyrics = best.plainLyrics || '';
+    const hasJapanese = JAPANESE_KANA_RE.test(syncedLyrics) || JAPANESE_KANA_RE.test(plainLyrics);
+
+    let romajiSyncedLyrics = '';
+    let romajiPlainLyrics = '';
+
+    if (hasJapanese) {
+      const kuroshiro = await getKuroshiro();
+      if (kuroshiro) {
+        if (syncedLyrics) {
+          romajiSyncedLyrics = await convertLrcToRomaji(kuroshiro, syncedLyrics);
+        } else if (plainLyrics) {
+          romajiPlainLyrics = await convertPlainToRomaji(kuroshiro, plainLyrics);
+        }
+      }
+    }
+
     res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
     return res.status(200).json({
       ok: true,
       found: true,
       query: cleaned,
+      hasJapanese,
       trackName: best.trackName || '',
       artistName: best.artistName || '',
       albumName: best.albumName || '',
-      syncedLyrics: best.syncedLyrics || '',
-      plainLyrics: best.plainLyrics || '',
+      syncedLyrics,
+      plainLyrics,
+      romajiSyncedLyrics,
+      romajiPlainLyrics,
     });
   } catch (e) {
     return res.status(500).json({

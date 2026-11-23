@@ -307,17 +307,31 @@
 
             if (data.syncedLyrics) {
                 syncedLines = parseLrc(data.syncedLyrics);
+                const romajiMap = new Map();
+                if (data.romajiSyncedLyrics) {
+                    parseLrc(data.romajiSyncedLyrics).forEach(r => {
+                        romajiMap.set(Math.round(r.time * 100), r.text);
+                    });
+                }
                 if (syncedLines.length > 0) {
-                    $("lyrics-badge").textContent = "✨ Lirik sinkron aktif — klik baris mana saja untuk loncat ke detiknya";
+                    const hasRomaji = Boolean(data.romajiSyncedLyrics);
+                    $("lyrics-badge").textContent = hasRomaji
+                        ? "✨ Lirik sinkron + Romaji aktif — klik baris mana saja untuk loncat ke detiknya"
+                        : "✨ Lirik sinkron aktif — klik baris mana saja untuk loncat ke detiknya";
                     $("lyrics-badge").classList.remove("hidden");
                     const box = $("lyrics-body");
                     box.innerHTML = "";
                     syncedLines.forEach((line, idx) => {
+                        const romajiText = romajiMap.get(Math.round(line.time * 100)) || "";
                         const p = document.createElement("button");
                         p.type = "button";
                         p.setAttribute("data-lyric-idx", idx);
-                        p.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/55 hover:text-spotify transition-all duration-200 py-1";
-                        p.textContent = line.text;
+                        p.className = "block w-full text-left py-1.5 transition-all duration-200 group";
+                        p.innerHTML =
+                            '<span data-lyric-main class="block text-xl md:text-2xl font-extrabold leading-snug text-white/55 group-hover:text-spotify transition-colors">' + esc(line.text) + '</span>' +
+                            (romajiText
+                                ? '<span data-lyric-romaji class="block text-sm md:text-base font-semibold leading-snug text-white/40 group-hover:text-spotify/80 mt-0.5 transition-colors">' + esc(romajiText) + '</span>'
+                                : '');
                         p.addEventListener("click", () => {
                             if (ytPlayer && ytReady && typeof ytPlayer.seekTo === "function") {
                                 ytPlayer.seekTo(line.time, true);
@@ -331,13 +345,22 @@
             }
 
             if (data.plainLyrics) {
-                $("lyrics-badge").textContent = "📄 Lirik teks (belum tersedia versi sinkron untuk lagu ini)";
+                const hasRomaji = Boolean(data.romajiPlainLyrics);
+                $("lyrics-badge").textContent = hasRomaji
+                    ? "📄 Lirik teks + Romaji (belum tersedia versi sinkron untuk lagu ini)"
+                    : "📄 Lirik teks (belum tersedia versi sinkron untuk lagu ini)";
                 $("lyrics-badge").classList.remove("hidden");
                 const lines = data.plainLyrics.split(/\r?\n/);
+                const romajiLines = hasRomaji ? data.romajiPlainLyrics.split(/\r?\n/) : [];
                 $("lyrics-body").innerHTML = lines
-                    .map(l => l.trim()
-                        ? '<p class="text-lg md:text-xl font-bold leading-relaxed text-white/85">' + esc(l) + '</p>'
-                        : '<div class="h-3"></div>')
+                    .map((l, idx) => {
+                        if (!l.trim()) return '<div class="h-3"></div>';
+                        const rom = (romajiLines[idx] || "").trim();
+                        return '<div class="py-0.5">' +
+                            '<p class="text-lg md:text-xl font-bold leading-snug text-white/90">' + esc(l) + '</p>' +
+                            (rom ? '<p class="text-sm md:text-base font-semibold text-spotify/85 mt-0.5">' + esc(rom) + '</p>' : '') +
+                            '</div>';
+                    })
                     .join("");
             }
         } catch (e) {
@@ -358,13 +381,18 @@
 
         const nodes = $("lyrics-body").querySelectorAll("[data-lyric-idx]");
         nodes.forEach((node, i) => {
+            const mainEl = node.querySelector("[data-lyric-main]");
+            const romEl = node.querySelector("[data-lyric-romaji]");
             if (i === idx) {
-                node.className = "block w-full text-left text-2xl md:text-3xl font-black leading-snug text-white transition-all duration-200 py-1.5";
+                if (mainEl) mainEl.className = "block text-2xl md:text-3xl font-black leading-snug text-white transition-colors";
+                if (romEl) romEl.className = "block text-sm md:text-base font-bold leading-snug text-spotify mt-0.5 transition-colors";
                 if (lyricsOpen) node.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (i < idx) {
-                node.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/35 hover:text-spotify transition-all duration-200 py-1";
+                if (mainEl) mainEl.className = "block text-xl md:text-2xl font-extrabold leading-snug text-white/35 group-hover:text-spotify transition-colors";
+                if (romEl) romEl.className = "block text-sm md:text-base font-semibold leading-snug text-white/25 group-hover:text-spotify/80 mt-0.5 transition-colors";
             } else {
-                node.className = "block w-full text-left text-xl md:text-2xl font-extrabold leading-snug text-white/60 hover:text-spotify transition-all duration-200 py-1";
+                if (mainEl) mainEl.className = "block text-xl md:text-2xl font-extrabold leading-snug text-white/60 group-hover:text-spotify transition-colors";
+                if (romEl) romEl.className = "block text-sm md:text-base font-semibold leading-snug text-white/45 group-hover:text-spotify/80 mt-0.5 transition-colors";
             }
         });
     }
