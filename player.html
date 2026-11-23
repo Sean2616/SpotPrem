@@ -35,6 +35,23 @@
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
         input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
         .playing-row { background: #282828; }
+        #yt-stage.mini-mode {
+            position: fixed;
+            right: 12px;
+            bottom: 124px;
+            width: 220px;
+            margin-top: 0;
+            padding: 8px;
+            z-index: 50;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+        }
+        @media (min-width: 768px) {
+            #yt-stage.mini-mode {
+                bottom: 96px;
+                right: 16px;
+                width: 256px;
+            }
+        }
     </style>
 </head>
 <body class="bg-black text-white min-h-screen font-sans antialiased pb-44 md:pb-36">
@@ -78,11 +95,14 @@
 
             <!-- YouTube Player Stage (tetap terlihat sesuai aturan YouTube ToS) -->
             <div id="yt-stage" class="hidden mt-4 bg-[#121212] border border-white/10 rounded-xl p-3 md:p-4 relative z-0 isolate">
-                <div class="flex items-center justify-between gap-2 mb-2.5">
-                    <span class="text-xs font-bold text-spotify uppercase tracking-wider">Sedang Diputar (Full Track)</span>
-                    <a id="yt-open-link" href="#" target="_blank" rel="noopener" class="text-xs font-semibold text-spotifyGray hover:text-white hover:underline">Buka di YouTube ↗</a>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <span id="yt-stage-label" class="text-[11px] font-bold text-spotify uppercase tracking-wider truncate">⚡ Hemat Kuota (Auto 144p/240p)</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button id="btn-mini" type="button" class="text-[11px] font-bold bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-full transition">Mode Mini</button>
+                        <a id="yt-open-link" href="#" target="_blank" rel="noopener" class="text-[11px] font-semibold text-spotifyGray hover:text-white hover:underline">YouTube ↗</a>
+                    </div>
                 </div>
-                <div class="relative z-0 isolate w-full max-w-2xl mx-auto aspect-video rounded-lg overflow-hidden bg-black">
+                <div id="yt-frame-wrap" class="relative z-0 isolate w-full max-w-2xl mx-auto aspect-video rounded-lg overflow-hidden bg-black">
                     <div id="yt-player" class="w-full h-full"></div>
                 </div>
             </div>
@@ -217,6 +237,34 @@
         document.head.appendChild(tag);
     })();
 
+    function applyLowestQuality() {
+        if (!ytPlayer || !ytReady) return;
+        try {
+            const levels = typeof ytPlayer.getAvailableQualityLevels === "function"
+                ? ytPlayer.getAvailableQualityLevels()
+                : [];
+            const target = levels.includes("tiny")
+                ? "tiny"
+                : levels.includes("small")
+                    ? "small"
+                    : "tiny";
+            if (typeof ytPlayer.setPlaybackQuality === "function") {
+                ytPlayer.setPlaybackQuality(target);
+            }
+        } catch (e) {}
+    }
+
+    function setMiniMode(enabled) {
+        const stage = $("yt-stage");
+        const btn = $("btn-mini");
+        const label = $("yt-stage-label");
+        const openLink = $("yt-open-link");
+        stage.classList.toggle("mini-mode", enabled);
+        btn.textContent = enabled ? "Perbesar" : "Mode Mini";
+        label.textContent = enabled ? "⚡ Mini" : "⚡ Hemat Kuota (Auto 144p/240p)";
+        openLink.classList.toggle("hidden", enabled);
+    }
+
     window.onYouTubeIframeAPIReady = function () {
         ytPlayer = new YT.Player("yt-player", {
             width: "100%",
@@ -225,19 +273,24 @@
                 autoplay: 1,
                 rel: 0,
                 modestbranding: 1,
-                playsinline: 1
+                playsinline: 1,
+                vq: "small"
             },
             events: {
                 onReady: function () {
                     ytReady = true;
                     ytPlayer.setVolume(Number($("vol").value || 80));
+                    applyLowestQuality();
                     if (pendingVideoId) {
                         const vid = pendingVideoId;
                         pendingVideoId = null;
-                        ytPlayer.loadVideoById(vid);
+                        ytPlayer.loadVideoById({ videoId: vid, suggestedQuality: "tiny" });
                     }
                 },
                 onStateChange: function (e) {
+                    if (e.data === YT.PlayerState.BUFFERING || e.data === YT.PlayerState.PLAYING) {
+                        applyLowestQuality();
+                    }
                     if (e.data === YT.PlayerState.PLAYING) {
                         isPlaying = true;
                         $("btn-toggle").textContent = "⏸";
@@ -368,7 +421,8 @@
         hideStatus();
 
         if (ytReady && ytPlayer && typeof ytPlayer.loadVideoById === "function") {
-            ytPlayer.loadVideoById(t.videoId);
+            ytPlayer.loadVideoById({ videoId: t.videoId, suggestedQuality: "tiny" });
+            applyLowestQuality();
         } else {
             pendingVideoId = t.videoId;
         }
@@ -399,6 +453,9 @@
             doSearch(val);
         }));
         $("btn-toggle").addEventListener("click", togglePlay);
+        $("btn-mini").addEventListener("click", () => {
+            setMiniMode(!$("yt-stage").classList.contains("mini-mode"));
+        });
         $("btn-next").addEventListener("click", () => { if (current + 1 < queue.length) playAt(current + 1); });
         $("btn-prev").addEventListener("click", () => { if (current > 0) playAt(current - 1); });
         $("vol").addEventListener("input", e => {
