@@ -31,13 +31,13 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); border: 3px solid #121212; border-radius: 8px; }
         .hero-grad { background: linear-gradient(180deg, #1d4d31 0%, #14351f 45%, #121212 100%); }
-        input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 999px; background: #4d4d4d; outline: none; cursor: pointer; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
-        input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: #fff; }
+        input[type="range"] { -webkit-appearance: none; appearance: none; height: 5px; border-radius: 999px; background: #4d4d4d; outline: none; cursor: pointer; touch-action: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
+        input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #1ED760; border: 2px solid #fff; }
         .playing-row { background: #282828; }
     </style>
 </head>
-<body class="bg-black text-white min-h-screen font-sans antialiased pb-36">
+<body class="bg-black text-white min-h-screen font-sans antialiased pb-44 md:pb-36">
 
     <!-- Topbar -->
     <div class="sticky top-0 z-[60] bg-black/80 backdrop-blur-md" style="transform: translateZ(0);">
@@ -129,29 +129,35 @@
 
     <!-- ===== Bar pemutar bawah ===== -->
     <div id="playerbar" class="fixed bottom-0 inset-x-0 z-[60] bg-[#181818] border-t border-white/10" style="transform: translateZ(0);">
-        <div class="max-w-5xl mx-auto px-4 py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div class="max-w-5xl mx-auto px-4 py-2.5 md:py-3 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-2">
             <div class="flex items-center gap-3 min-w-0">
-                <img id="np-cover" alt="" class="w-14 h-14 rounded bg-[#2a2a2a] object-cover shrink-0">
+                <img id="np-cover" alt="" class="w-12 h-12 md:w-14 md:h-14 rounded bg-[#2a2a2a] object-cover shrink-0">
                 <div class="min-w-0">
                     <p id="np-title" class="font-bold text-sm truncate">Belum ada lagu</p>
                     <p id="np-artists" class="text-spotifyGray text-xs truncate">Pilih lagu untuk mulai</p>
                 </div>
             </div>
-            <div class="flex flex-col items-center gap-1.5">
-                <div class="flex items-center gap-5">
+            <div class="flex items-center gap-4 md:gap-5 md:flex-col md:gap-1.5">
+                <div class="flex items-center gap-4 md:gap-5">
                     <button id="btn-prev" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Sebelumnya">⏮</button>
                     <button id="btn-toggle" class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-base hover:scale-105 transition" aria-label="Putar/Jeda">▶</button>
                     <button id="btn-next" class="text-spotifyGray hover:text-white text-xl leading-none" aria-label="Berikutnya">⏭</button>
                 </div>
                 <div class="hidden md:flex items-center gap-2 text-[11px] text-spotifyGray font-semibold w-[380px] max-w-[46vw]">
                     <span id="t-cur">0:00</span>
-                    <input id="seek" type="range" min="0" max="1000" value="0" class="flex-1">
+                    <input id="seek" type="range" min="0" max="1000" value="0" class="flex-1" aria-label="Atur waktu lagu">
                     <span id="t-dur">0:00</span>
                 </div>
             </div>
             <div class="hidden md:flex items-center gap-2 justify-end">
                 <span class="text-spotifyGray text-sm">🔊</span>
-                <input id="vol" type="range" min="0" max="100" value="80" class="w-28">
+                <input id="vol" type="range" min="0" max="100" value="80" class="w-28" aria-label="Volume">
+            </div>
+            <!-- Seekbar khusus mobile (tampil penuh di bawah kontrol) -->
+            <div class="col-span-2 flex md:hidden items-center gap-2.5 text-[11px] text-spotifyGray font-semibold pb-0.5">
+                <span id="t-cur-mobile" class="w-9 text-right tabular-nums">0:00</span>
+                <input id="seek-mobile" type="range" min="0" max="1000" value="0" class="flex-1" aria-label="Atur waktu lagu mobile">
+                <span id="t-dur-mobile" class="w-9 tabular-nums">0:00</span>
             </div>
         </div>
     </div>
@@ -261,17 +267,27 @@
         });
     };
 
+    function syncSeekUI(cur, dur) {
+        const val = dur > 0 ? Math.round((cur / dur) * 1000) : 0;
+        if (!seeking) {
+            $("seek").value = val;
+            $("seek-mobile").value = val;
+        }
+        const curTxt = fmtSec(cur);
+        const durTxt = fmtSec(dur);
+        $("t-cur").textContent = curTxt;
+        $("t-dur").textContent = durTxt;
+        $("t-cur-mobile").textContent = curTxt;
+        $("t-dur-mobile").textContent = durTxt;
+    }
+
     function startProgressLoop() {
         if (progressTimer) return;
         progressTimer = setInterval(() => {
             if (!ytPlayer || !ytReady || typeof ytPlayer.getCurrentTime !== "function") return;
             const cur = ytPlayer.getCurrentTime() || 0;
             const dur = ytPlayer.getDuration() || 0;
-            if (!seeking && dur > 0) {
-                $("seek").value = Math.round((cur / dur) * 1000);
-            }
-            $("t-cur").textContent = fmtSec(cur);
-            $("t-dur").textContent = fmtSec(dur);
+            syncSeekUI(cur, dur);
         }, 500);
     }
 
@@ -390,14 +406,34 @@
                 ytPlayer.setVolume(Number(e.target.value));
             }
         });
-        $("seek").addEventListener("input", () => { seeking = true; });
-        $("seek").addEventListener("change", e => {
-            seeking = false;
-            if (ytPlayer && ytReady && typeof ytPlayer.getDuration === "function") {
-                const dur = ytPlayer.getDuration() || 0;
-                if (dur > 0) ytPlayer.seekTo((dur * Number(e.target.value)) / 1000, true);
-            }
-        });
+        function bindSeek(el) {
+            const preview = e => {
+                seeking = true;
+                const val = Number(e.target.value);
+                $("seek").value = val;
+                $("seek-mobile").value = val;
+                if (ytPlayer && ytReady && typeof ytPlayer.getDuration === "function") {
+                    const dur = ytPlayer.getDuration() || 0;
+                    if (dur > 0) {
+                        const previewTxt = fmtSec((dur * val) / 1000);
+                        $("t-cur").textContent = previewTxt;
+                        $("t-cur-mobile").textContent = previewTxt;
+                    }
+                }
+            };
+            const commit = e => {
+                seeking = false;
+                const val = Number(e.target.value);
+                if (ytPlayer && ytReady && typeof ytPlayer.getDuration === "function") {
+                    const dur = ytPlayer.getDuration() || 0;
+                    if (dur > 0) ytPlayer.seekTo((dur * val) / 1000, true);
+                }
+            };
+            el.addEventListener("input", preview);
+            el.addEventListener("change", commit);
+        }
+        bindSeek($("seek"));
+        bindSeek($("seek-mobile"));
         doSearch("top hits indonesia official audio");
     })();
     </script>
