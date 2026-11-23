@@ -42,6 +42,18 @@
         .cover-grad-5 { background: linear-gradient(135deg, #e91429, #6e0a16); }
         .cover-grad-6 { background: linear-gradient(135deg, #f59b23, #8f4d05); }
         .cover-grad-7 { background: linear-gradient(135deg, #ba5d07, #503750); }
+        .swipe-track {
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: pan-y;
+        }
+        .swipe-knob {
+            transition: transform 0.2s ease;
+        }
+        .swipe-track.dragging .swipe-knob {
+            transition: none;
+        }
     </style>
 </head>
 <body class="bg-black text-white min-h-screen font-sans antialiased">
@@ -81,16 +93,16 @@
                 </span>
                 <span id="sidebar-count" class="text-xs font-bold bg-white/10 text-white px-2.5 py-1 rounded-full">0 akun</span>
             </div>
-            <div class="space-y-1 text-sm">
-                <button onclick="setFilter('all')" class="w-full flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-white/10 transition text-left">
+            <div class="space-y-1 text-sm" id="sidebar-filters">
+                <button data-filter="all" onclick="setFilter('all', true)" class="sidebar-filter w-full flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-white/10 transition text-left">
                     <span class="w-12 h-12 rounded bg-gradient-to-br from-[#450af5] to-[#c4efd9] flex items-center justify-center text-xl shrink-0">♥</span>
                     <span><span class="block font-semibold text-white">Semua Akun</span><span class="block text-spotifyGray text-xs">Daftar lengkap hari ini</span></span>
                 </button>
-                <button onclick="setFilter('active')" class="w-full flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-white/10 transition text-left">
+                <button data-filter="active" onclick="setFilter('active', true)" class="sidebar-filter w-full flex items-center gap-3 px-2 py-2.5 rounded-md bg-white/10 hover:bg-white/15 transition text-left">
                     <span class="w-12 h-12 rounded cover-grad-0 flex items-center justify-center text-xl shrink-0">♫</span>
                     <span><span class="block font-semibold text-white">Akun Aktif</span><span id="sidebar-active" class="block text-spotifyGray text-xs">Siap dipakai</span></span>
                 </button>
-                <button onclick="setFilter('gone')" class="w-full flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-white/10 transition text-left">
+                <button data-filter="gone" onclick="setFilter('gone', true)" class="sidebar-filter w-full flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-white/10 transition text-left">
                     <span class="w-12 h-12 rounded bg-[#2a2a2a] flex items-center justify-center text-xl shrink-0 text-spotifyGray">✕</span>
                     <span><span class="block font-semibold text-white">Habis / Penuh</span><span class="block text-spotifyGray text-xs">Sudah diambil orang lain</span></span>
                 </button>
@@ -109,8 +121,8 @@
     <div class="flex-1 min-w-0 bg-spotifyDark lg:rounded-lg overflow-x-clip flex flex-col w-full">
 
         <!-- Topbar ala Spotify -->
-        <div class="sticky top-0 z-[60] bg-black/70 backdrop-blur-md" style="transform: translateZ(0);">
-            <div class="px-4 md:px-6 py-3 flex items-center gap-3">
+        <div class="sticky top-0 z-[60] bg-black/80 backdrop-blur-md" style="transform: translateZ(0);">
+            <div class="px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-3">
                 <a href="#beranda" class="flex lg:hidden items-center gap-2 shrink-0">
                     <span class="w-8 h-8 rounded-full bg-spotify flex items-center justify-center text-black font-black">♫</span>
                     <span class="font-black tracking-tight">Spot<span class="text-spotify">Prem</span></span>
@@ -121,42 +133,42 @@
                 </label>
                 <div class="ml-auto flex items-center gap-4 shrink-0">
                     <span class="hidden xl:block text-sm font-bold text-spotifyGray hover:text-white transition cursor-default">Khusus Akun Premium</span>
-                    <a href="#account-list" id="top-count" class="bg-white text-black text-sm font-bold px-4 py-2 rounded-full hover:scale-[1.04] transition whitespace-nowrap">Lihat Akun</a>
+                    <a href="#account-list" id="top-count" class="bg-white text-black text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full hover:scale-[1.04] transition whitespace-nowrap">Lihat Akun</a>
                 </div>
             </div>
-            <label class="md:hidden flex mx-4 mb-3 items-center gap-3 bg-[#242424] border border-transparent focus-within:border-white/60 rounded-full px-4 py-2.5">
-                <svg viewBox="0 0 24 24" class="w-5 h-5 text-spotifyGray shrink-0" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8" stroke-linecap="round"/></svg>
-                <input id="search-input-mobile" type="text" placeholder="Cari region atau paket…" class="bg-transparent outline-none text-sm w-full placeholder:text-spotifyGray" oninput="onSearch(this.value)">
+            <label class="md:hidden flex mx-4 mb-2.5 items-center gap-2.5 bg-[#242424] border border-transparent focus-within:border-white/60 rounded-full px-3.5 py-2">
+                <svg viewBox="0 0 24 24" class="w-4 h-4 text-spotifyGray shrink-0" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8" stroke-linecap="round"/></svg>
+                <input id="search-input-mobile" type="text" placeholder="Cari region atau paket…" class="bg-transparent outline-none text-xs sm:text-sm w-full placeholder:text-spotifyGray" oninput="onSearch(this.value)">
             </label>
         </div>
 
         <!-- Hero dengan gradien ala Spotify -->
-        <header id="beranda" class="hero-grad px-4 md:px-6 pt-8 md:pt-12 pb-7">
+        <header id="beranda" class="hero-grad px-4 md:px-6 pt-5 md:pt-12 pb-5 md:pb-7">
             <div class="flex items-end gap-5">
                 <div class="hidden sm:flex w-[150px] h-[150px] md:w-[190px] md:h-[190px] rounded-md shadow-[0_8px_40px_rgba(0,0,0,.6)] cover-grad-0 items-center justify-center shrink-0">
                     <span class="text-[84px] md:text-[104px] leading-none text-black/85 font-black">♫</span>
                 </div>
                 <div class="min-w-0">
-                    <span class="text-xs md:text-sm font-bold uppercase tracking-widest">Update Akun Harian</span>
-                    <h2 class="text-4xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.02] my-3">Akun Spotify<br>Premium <span class="text-spotify">Gratis</span></h2>
-                    <p class="text-sm md:text-[15px] text-white/85 max-w-xl font-medium">
-                        Silakan gunakan akun di bawah ini untuk mendengarkan musik tanpa iklan, dan download lagu agar bisa diputar offline. Pilih akun yang berstatus <span class="text-white font-bold">Aktif</span>.
+                    <span class="text-[11px] md:text-sm font-bold uppercase tracking-widest text-white/80">Update Akun Harian</span>
+                    <h2 class="text-[28px] sm:text-5xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05] my-2 md:my-3">Akun Spotify<br>Premium <span class="text-spotify">Gratis</span></h2>
+                    <p class="text-xs sm:text-sm md:text-[15px] text-white/85 max-w-xl font-medium leading-relaxed">
+                        Dengarkan musik tanpa iklan &amp; download lagu offline. Pilih akun berstatus <span class="text-white font-bold">Aktif</span> di bawah lalu usap untuk membuka.
                     </p>
                 </div>
             </div>
-            <div class="flex flex-wrap items-center gap-3 mt-7">
-                <a href="#account-list" class="bg-spotify text-black font-bold text-sm px-6 py-3 rounded-full hover:scale-[1.04] hover:bg-[#3be477] transition shadow-lg">▶&ensp;Lihat Akun Tersedia</a>
-                <a href="#peraturan" class="bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-6 py-3 rounded-full border border-white/30 transition">Cara Pakai</a>
-                <span id="hero-count" class="text-sm text-white/70 font-semibold"></span>
+            <div class="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 mt-4 md:mt-7">
+                <a href="#account-list" class="inline-flex items-center justify-center bg-spotify text-black font-bold text-xs sm:text-sm px-3.5 sm:px-6 py-2.5 sm:py-3 rounded-full hover:scale-[1.03] hover:bg-[#3be477] transition shadow-lg whitespace-nowrap">▶&ensp;Lihat Akun<span class="hidden sm:inline">&nbsp;Tersedia</span></a>
+                <a href="player.html" class="inline-flex items-center justify-center bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-full border border-white/30 transition whitespace-nowrap">🎧 Pemutar Musik<span class="hidden sm:inline">&nbsp;&amp; Lirik</span></a>
+                <span id="hero-count" class="col-span-2 sm:col-span-1 text-[11px] sm:text-sm text-white/70 font-semibold"></span>
             </div>
-            <div id="peraturan" class="mt-6 bg-black/40 border border-white/10 rounded-lg p-4 text-[13px] text-white/85 flex items-start gap-3 max-w-2xl">
-                <span class="text-base shrink-0">⚠️</span>
+            <div id="peraturan" class="mt-3.5 md:mt-6 bg-black/40 border border-white/10 rounded-lg p-3 md:p-4 text-[11.5px] sm:text-[13px] text-white/85 flex items-start gap-2.5 sm:gap-3 max-w-2xl leading-snug">
+                <span class="text-sm sm:text-base shrink-0">⚠️</span>
                 <span><b class="text-white">Peraturan:</b> Harap mengganti password atau profil agar akun tidak digunakan bersama. Jika akun tidak bisa digunakan, tandanya password sudah diganti.</span>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="px-4 md:px-6 pt-5 pb-10 flex-1 w-full relative z-0 isolate">
+        <main class="px-4 md:px-6 pt-4 md:pt-5 pb-10 flex-1 w-full relative z-0 isolate">
             <!-- Chips filter ala Spotify -->
             <div class="flex gap-2 flex-wrap mb-5" id="filter-chips">
                 <button data-filter="active" onclick="setFilter('active')" class="chip bg-white text-black text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Aktif</button>
@@ -164,9 +176,9 @@
                 <button data-filter="all" onclick="setFilter('all')" class="chip bg-[#2a2a2a] hover:bg-[#353535] text-white text-[13px] font-bold px-3.5 py-1.5 rounded-full transition">Semua</button>
             </div>
 
-            <div class="flex items-baseline justify-between gap-4 mb-4">
-                <h3 class="text-2xl font-extrabold tracking-tight hover:underline cursor-default">Akun Premium untuk Kamu</h3>
-                <span id="result-count" class="text-sm font-bold text-spotifyGray whitespace-nowrap"></span>
+            <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-4 mb-4">
+                <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight hover:underline cursor-default">Akun Premium untuk Kamu</h3>
+                <span id="result-count" class="text-xs sm:text-sm font-bold text-spotifyGray whitespace-nowrap"></span>
             </div>
 
             <div id="account-list" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"></div>
@@ -205,6 +217,18 @@
     const container = document.getElementById('account-list');
     let currentFilter = 'active';
     let currentQuery = '';
+    let toastTimer = null;
+    const unlockedCards = new Set();
+    const revealedPassTracked = new Set();
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
     function focusSearch(e) {
         if (e) e.preventDefault();
@@ -222,14 +246,21 @@
         renderAccounts();
     }
 
-    function setFilter(filter) {
+    function setFilter(filter, shouldScroll) {
         currentFilter = filter;
         document.querySelectorAll('#filter-chips .chip').forEach(chip => {
             const active = chip.dataset.filter === filter;
             chip.className = 'chip text-[13px] font-bold px-3.5 py-1.5 rounded-full transition ' +
                 (active ? 'bg-white text-black' : 'bg-[#2a2a2a] hover:bg-[#353535] text-white');
         });
+        document.querySelectorAll('#sidebar-filters .sidebar-filter').forEach(btn => {
+            const active = btn.dataset.filter === filter;
+            btn.classList.toggle('bg-white/10', active);
+        });
         renderAccounts();
+        if (shouldScroll) {
+            document.getElementById('account-list').scrollIntoView({ behavior: 'smooth' });
+        }
     }
 
     function coverClass(item, index) {
@@ -237,6 +268,120 @@
         const s = String(item.plan || '') + String(item.region || '') + index;
         for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
         return 'cover-grad-' + (h % 8);
+    }
+
+    function bindCardSwipe(zoneEl, index) {
+        const trackEl = zoneEl.querySelector('.swipe-track');
+        const knob = zoneEl.querySelector('.swipe-knob');
+        const fill = zoneEl.querySelector('.swipe-fill');
+        const label = zoneEl.querySelector('.swipe-label');
+        if (!trackEl || !knob) return;
+
+        let startX = 0;
+        let maxDrag = 0;
+        let currentX = 0;
+        let dragging = false;
+
+        const onDown = (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            dragging = true;
+            trackEl.classList.add('dragging');
+            startX = e.clientX;
+            maxDrag = Math.max(1, trackEl.clientWidth - knob.offsetWidth - 8);
+            currentX = 0;
+            try { zoneEl.setPointerCapture(e.pointerId); } catch (_) {}
+        };
+
+        const onMove = (e) => {
+            if (!dragging) return;
+            const dx = Math.max(0, Math.min(maxDrag, e.clientX - startX));
+            currentX = dx;
+            const pct = dx / maxDrag;
+            knob.style.transform = 'translateX(' + dx + 'px)';
+            if (fill) fill.style.width = Math.min(100, Math.round((dx + knob.offsetWidth) / trackEl.clientWidth * 100)) + '%';
+            if (label) label.style.opacity = String(Math.max(0, 1 - pct * 1.6));
+            if (pct >= 0.65) {
+                dragging = false;
+                trackEl.classList.remove('dragging');
+                try { zoneEl.releasePointerCapture(e.pointerId); } catch (_) {}
+                unlockAccountCard(index);
+            }
+        };
+
+        const onUp = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            trackEl.classList.remove('dragging');
+            try { zoneEl.releasePointerCapture(e.pointerId); } catch (_) {}
+            if (currentX / maxDrag >= 0.55) {
+                unlockAccountCard(index);
+            } else {
+                knob.style.transform = 'translateX(0px)';
+                if (fill) fill.style.width = '0%';
+                if (label) label.style.opacity = '1';
+            }
+        };
+
+        zoneEl.addEventListener('pointerdown', onDown);
+        zoneEl.addEventListener('pointermove', onMove);
+        zoneEl.addEventListener('pointerup', onUp);
+        zoneEl.addEventListener('pointercancel', onUp);
+    }
+
+    function credentialsUnlockedHtml(item, index) {
+        return `
+            <div class="bg-black/50 rounded-md p-3 mb-2">
+                <span class="text-[10px] uppercase tracking-wider text-spotifyGray font-bold block">Email Akun</span>
+                <div class="flex justify-between items-center mt-1 gap-2">
+                    <span class="font-mono text-xs text-zinc-200 truncate">${esc(item.email)}</span>
+                    <button onclick="copyByIndex(${index}, 'email')" class="text-xs text-spotify hover:underline shrink-0 font-bold">Salin</button>
+                </div>
+            </div>
+
+            <div class="bg-black/50 rounded-md p-3 mb-3.5">
+                <span class="text-[10px] uppercase tracking-wider text-spotifyGray font-bold block">Password Akun</span>
+                <div class="flex justify-between items-center mt-1 gap-2">
+                    <span id="pass-${index}" class="font-mono text-xs text-zinc-200 truncate">${esc(item.password)}</span>
+                    <button onclick="copyByIndex(${index}, 'password')" class="text-xs text-spotify hover:underline shrink-0 font-bold">Salin</button>
+                </div>
+            </div>
+
+            <button
+                onclick="copyByIndex(${index}, 'both')"
+                class="w-full py-2.5 rounded-full font-bold text-sm transition bg-spotify hover:bg-[#3be477] hover:scale-[1.02] text-black cursor-pointer">
+                Salin Email &amp; Password
+            </button>
+        `;
+    }
+
+    function unlockAccountCard(index) {
+        const item = (typeof accounts !== 'undefined') ? accounts[index] : null;
+        if (!item || !item.available) return;
+        const alreadyUnlocked = unlockedCards.has(index);
+        unlockedCards.add(index);
+
+        const wrap = document.getElementById('cred-box-' + index);
+        if (wrap) {
+            wrap.innerHTML = credentialsUnlockedHtml(item, index);
+        }
+
+        if (!alreadyUnlocked) {
+            optimisticMarkCopied(item.email);
+            trackCopy(item, 'both');
+            showToast('Akun terbuka! Ditandai sudah disalin.');
+        }
+    }
+
+    function optimisticMarkCopied(email) {
+        if (!email) return;
+        const prev = copyStats[email] || { copies: 0, views: 0, last: null, lastView: null };
+        copyStats[email] = {
+            copies: (prev.copies || 0) + 1,
+            views: prev.views || 0,
+            last: new Date().toISOString(),
+            lastView: prev.lastView || null
+        };
+        paintCopyStats();
     }
 
     function renderAccounts() {
@@ -258,7 +403,9 @@
                     if (!hay.includes(currentQuery)) return false;
                 }
                 return true;
-            });
+            })
+            // Akun Aktif selalu tampil paling atas pada filter "Semua"
+            .sort((a, b) => Number(Boolean(b.item.available)) - Number(Boolean(a.item.available)));
 
         updateCounts(accounts.length, activeCount, rows.length);
 
@@ -279,69 +426,68 @@
 
         rows.forEach(({ item, index }) => {
             const card = document.createElement('div');
-            card.className = "group bg-spotifyCard rounded-lg p-4 flex flex-col hover:bg-spotifyHover transition duration-200 cursor-default";
+            card.className = "group bg-spotifyCard rounded-lg p-4 flex flex-col hover:bg-spotifyHover transition duration-200 cursor-default min-w-0";
+            const isUnlocked = unlockedCards.has(index);
 
-            card.innerHTML = `
-                <div class="relative mb-4">
-                    <div class="aspect-square rounded-md ${coverClass(item, index)} ${item.available ? '' : 'grayscale opacity-50'} flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,.5)]">
-                        <span class="text-7xl leading-none text-black/70 font-black select-none">♫</span>
-                    </div>
-                    ${item.available ? `
-                        <button onclick="copyByIndex(${index}, 'both')" aria-label="Salin email dan password"
-                            class="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-spotify text-black text-lg flex items-center justify-center shadow-[0_8px_16px_rgba(0,0,0,.4)] opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 hover:scale-105 hover:bg-[#3be477] transition-all duration-200">▶</button>
-                    ` : ''}
-                </div>
-
-                <div class="flex items-start justify-between gap-2">
-                    <h3 class="text-base font-bold text-white truncate">${item.plan}</h3>
-                    <span class="flex items-center gap-1.5 text-[11px] font-bold shrink-0 ${item.available ? 'text-spotify' : 'text-red-400'}">
-                        <span class="w-2 h-2 rounded-full ${item.available ? 'bg-spotify' : 'bg-red-400'}"></span>${item.status}
-                    </span>
-                </div>
-                <p class="text-sm text-spotifyGray clamp2 mb-4">${item.region} • Diperbarui: ${item.updatedAt}</p>
-                ${item.available ? `<div class="copystat hidden mb-4 -mt-2" data-email="${item.email}"></div>` : ''}
-
-                <div class="mt-auto">
+            const credBoxHtml = !item.available
+                ? `
                     <div class="bg-black/50 rounded-md p-3 mb-2">
                         <span class="text-[10px] uppercase tracking-wider text-spotifyGray font-bold block">Email Akun</span>
                         <div class="flex justify-between items-center mt-1 gap-2">
-                            <span class="font-mono text-xs text-zinc-200 truncate">
-                                ${item.available ? item.email : '••••••••••••••••••••'}
-                            </span>
-                            ${item.available ? `
-                                <button onclick="copyByIndex(${index}, 'email')" class="text-xs text-spotify hover:underline shrink-0 font-bold">Salin</button>
-                            ` : ''}
+                            <span class="font-mono text-xs text-zinc-400 truncate">••••••••••••••••••••</span>
                         </div>
                     </div>
-
-                    <div class="bg-black/50 rounded-md p-3 mb-4">
+                    <div class="bg-black/50 rounded-md p-3 mb-3.5">
                         <span class="text-[10px] uppercase tracking-wider text-spotifyGray font-bold block">Password Akun</span>
                         <div class="flex justify-between items-center mt-1 gap-2">
-                            <span id="pass-${index}" class="font-mono text-xs text-zinc-200 truncate">
-                                ${item.available ? '••••••••••••' : 'TIDAK TERSEDIA'}
-                            </span>
-                            ${item.available ? `
-                                <span class="flex gap-3 shrink-0">
-                                    <button onclick="revealPassword(${index})" class="text-xs text-spotifyGray hover:text-white font-semibold">Lihat</button>
-                                    <button onclick="copyByIndex(${index}, 'password')" class="text-xs text-spotify hover:underline font-bold">Salin</button>
-                                </span>
-                            ` : ''}
+                            <span class="font-mono text-xs text-zinc-400 truncate">TIDAK TERSEDIA</span>
                         </div>
                     </div>
-
-                    <button
-                        onclick="copyByIndex(${index}, 'both')"
-                        ${!item.available ? 'disabled' : ''}
-                        class="w-full py-2.5 rounded-full font-bold text-sm transition ${
-                            item.available
-                            ? 'bg-spotify hover:bg-[#3be477] hover:scale-[1.02] text-black cursor-pointer'
-                            : 'bg-[#2a2a2a] text-zinc-500 cursor-not-allowed'
-                        }">
-                        ${item.available ? 'Salin Email & Password' : 'Akun Penuh / Habis'}
+                    <button disabled class="w-full py-2.5 rounded-full font-bold text-sm bg-[#2a2a2a] text-zinc-500 cursor-not-allowed">
+                        Akun Penuh / Habis
                     </button>
+                `
+                : isUnlocked
+                    ? credentialsUnlockedHtml(item, index)
+                    : `
+                        <div class="swipe-zone relative rounded-xl bg-black/55 border border-white/10 p-3.5 cursor-grab active:cursor-grabbing select-none" style="touch-action: pan-y;" data-swipe-idx="${index}">
+                            <div class="space-y-2 mb-3.5 opacity-35 blur-[3px] pointer-events-none select-none" aria-hidden="true">
+                                <div class="bg-white/5 rounded-md px-3 py-2">
+                                    <span class="text-[9px] uppercase tracking-wider text-spotifyGray font-bold block">Email Akun</span>
+                                    <span class="font-mono text-xs text-zinc-300 block mt-0.5">••••••••••@spotprem.me</span>
+                                </div>
+                                <div class="bg-white/5 rounded-md px-3 py-2">
+                                    <span class="text-[9px] uppercase tracking-wider text-spotifyGray font-bold block">Password Akun</span>
+                                    <span class="font-mono text-xs text-zinc-300 block mt-0.5">••••••••••••</span>
+                                </div>
+                            </div>
+                            <div class="swipe-track h-11 rounded-full bg-[#1a1a1a] border border-spotify/50 overflow-hidden flex items-center p-1 shadow-inner">
+                                <div class="swipe-fill absolute inset-y-0 left-0 bg-spotify/25 pointer-events-none" style="width:0%"></div>
+                                <span class="swipe-knob relative z-10 w-9 h-9 rounded-full bg-spotify text-black font-black text-sm flex items-center justify-center shadow shrink-0">➜</span>
+                                <span class="swipe-label relative z-10 flex-1 text-center text-[11px] sm:text-xs font-extrabold text-spotify pl-2 pr-3 pointer-events-none truncate">Usap lihat Email &amp; Password</span>
+                            </div>
+                            <p class="text-[10px] text-center text-spotifyGray mt-2 pointer-events-none">Mengusap akan otomatis menandai akun ini sudah disalin</p>
+                        </div>
+                    `;
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-bold text-white truncate">${esc(item.plan)}</h3>
+                    <span class="flex items-center gap-1.5 text-[11px] font-bold shrink-0 ${item.available ? 'text-spotify' : 'text-red-400'}">
+                        <span class="w-2 h-2 rounded-full ${item.available ? 'bg-spotify' : 'bg-red-400'}"></span>${esc(item.status)}
+                    </span>
+                </div>
+                <p class="text-xs sm:text-sm text-spotifyGray clamp2 mb-3.5 sm:mb-4">${esc(item.region)} • Diperbarui: ${esc(item.updatedAt)}</p>
+                ${item.available ? `<div class="copystat hidden mb-3.5 -mt-1.5" data-email="${esc(item.email)}"></div>` : ''}
+
+                <div class="mt-auto" id="cred-box-${index}">
+                    ${credBoxHtml}
                 </div>
             `;
             container.appendChild(card);
+
+            const swipeZone = card.querySelector('.swipe-zone');
+            if (swipeZone) bindCardSwipe(swipeZone, index);
         });
         paintCopyStats();
     }
@@ -417,6 +563,7 @@
     function copyByIndex(index, kind) {
         const item = (typeof accounts !== 'undefined') ? accounts[index] : null;
         if (!item || !item.available) return;
+        optimisticMarkCopied(item.email);
         trackCopy(item, kind);
         if (kind === 'email') copyText(item.email, 'Email berhasil disalin!');
         else if (kind === 'password') copyText(item.password, 'Password berhasil disalin!');
@@ -426,15 +573,30 @@
     function revealPassword(index, realPassword) {
         const item = (typeof accounts !== 'undefined') ? accounts[index] : null;
         const el = document.getElementById(`pass-${index}`);
-        if (item && item.available) trackCopy(item, 'reveal');
-        if (el) el.textContent = realPassword || (item ? item.password : '');
+        const btn = document.getElementById(`pass-btn-${index}`);
+        if (!el || !item || !item.available) return;
+        const isShown = el.getAttribute('data-revealed') === '1';
+        if (isShown) {
+            el.textContent = '••••••••••••';
+            el.setAttribute('data-revealed', '0');
+            if (btn) btn.textContent = 'Lihat';
+        } else {
+            el.textContent = realPassword || item.password || '';
+            el.setAttribute('data-revealed', '1');
+            if (btn) btn.textContent = 'Tutup';
+            if (!revealedPassTracked.has(index)) {
+                revealedPassTracked.add(index);
+                trackCopy(item, 'reveal');
+            }
+        }
     }
 
     function showToast(message) {
         const toast = document.getElementById('toast');
         toast.textContent = message;
         toast.classList.remove('translate-y-24', 'opacity-0');
-        setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 2500);
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 2500);
     }
 
     function copyText(text, message) {
