@@ -106,10 +106,10 @@
     </aside>
 
     <!-- ============ KONTEN UTAMA ============ -->
-    <div class="flex-1 min-w-0 bg-spotifyDark lg:rounded-lg overflow-hidden flex flex-col w-full">
+    <div class="flex-1 min-w-0 bg-spotifyDark lg:rounded-lg overflow-x-clip flex flex-col w-full">
 
         <!-- Topbar ala Spotify -->
-        <div class="sticky top-0 z-50 bg-black/70 backdrop-blur-md">
+        <div class="sticky top-0 z-[60] bg-black/70 backdrop-blur-md" style="transform: translateZ(0);">
             <div class="px-4 md:px-6 py-3 flex items-center gap-3">
                 <a href="#beranda" class="flex lg:hidden items-center gap-2 shrink-0">
                     <span class="w-8 h-8 rounded-full bg-spotify flex items-center justify-center text-black font-black">♫</span>
@@ -151,12 +151,12 @@
             </div>
             <div id="peraturan" class="mt-6 bg-black/40 border border-white/10 rounded-lg p-4 text-[13px] text-white/85 flex items-start gap-3 max-w-2xl">
                 <span class="text-base shrink-0">⚠️</span>
-                <span><b class="text-white">Peraturan:</b> Harap mengganti password atau profil agar akun tidak digunakan bersama. Jika akun tidak bisa digunakan, tandanya password sudah diganti.</span>
+                <span><b class="text-white">Peraturan:</b> Harap <b class="text-white">tidak</b> mengganti password atau profil agar akun tetap bisa digunakan bersama. Jika akun tidak bisa digunakan, tandanya password sudah diganti.</span>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="px-4 md:px-6 pb-24 lg:pb-10 flex-1 w-full">
+        <main class="px-4 md:px-6 pb-10 flex-1 w-full relative z-0 isolate">
             <!-- ===== Spotify Embed: playlist unggulan =====
                  GANTI PLAYLIST: ubah ID playlist di src iframe di bawah
                  (format: https://open.spotify.com/embed/playlist/<ID>?...) -->
@@ -165,7 +165,7 @@
                     <h3 class="text-xl md:text-2xl font-black tracking-tight">🎧 Dengarkan Dulu di Spotify</h3>
                     <a href="player.html" class="text-spotify text-sm font-bold hover:underline shrink-0">Buka Pemutar →</a>
                 </div>
-                <div class="rounded-xl overflow-hidden bg-black border border-white/10">
+                <div class="relative z-0 isolate rounded-xl overflow-hidden bg-black border border-white/10">
                     <iframe id="home-sp-frame" title="Playlist unggulan Spotify" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/1OiiFyV4pJ7Pl5yhB4OHLO?utm_source=generator&theme=0" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
                 </div>
                 <p class="mt-2 text-[13px] text-white/60 font-semibold">Playlist • Top 50 Indonesia — lagu-lagu Indonesia terbaik saat ini. Belum login Spotify = cuplikan 30 detik; sudah login = bisa putar penuh.</p>
@@ -196,9 +196,9 @@
         </main>
 
         <!-- Footer ala Spotify -->
-        <footer class="border-t border-white/10 px-4 md:px-6 py-8 text-spotifyGray text-xs w-full">
+        <footer class="border-t border-white/10 px-4 md:px-6 pt-8 pb-24 lg:py-8 text-spotifyGray text-xs w-full">
             <div class="flex flex-col md:flex-row justify-between gap-3">
-                <p>&copy; 2026 SpotifyShare. Website pembagian akun komunitas.</p>
+                <p>&copy; 2026 SpotPrem. Website pembagian akun komunitas.</p>
                 <p>SpotPrem adalah website komunitas, bukan situs resmi dan tidak berafiliasi dengan Spotify. Spotify adalah merek dagang pemiliknya.</p>
             </div>
         </footer>
@@ -206,7 +206,7 @@
 </div>
 
 <!-- Navigasi bawah (mobile, ala aplikasi Spotify) -->
-<nav class="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-black/95 backdrop-blur border-t border-white/10">
+<nav class="lg:hidden fixed bottom-0 inset-x-0 z-[60] bg-black/95 backdrop-blur border-t border-white/10" style="transform: translateZ(0);">
     <div class="grid grid-cols-4 text-[11px] font-semibold text-spotifyGray">
         <a href="#beranda" class="flex flex-col items-center gap-1 py-2.5 text-white"><span class="text-lg leading-none">⌂</span>Beranda</a>
         <a href="#account-list" onclick="focusSearch(event)" class="flex flex-col items-center gap-1 py-2.5"><span class="text-lg leading-none">⌕</span>Cari Akun</a>
@@ -216,7 +216,7 @@
 </nav>
 
 <!-- Toast Notification -->
-<div id="toast" class="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-6 bg-spotify text-black font-bold text-sm px-5 py-3 rounded-full shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300 z-[60] whitespace-nowrap">
+<div id="toast" class="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-6 bg-spotify text-black font-bold text-sm px-5 py-3 rounded-full shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300 z-[70] whitespace-nowrap">
     Berhasil disalin!
 </div>
 
@@ -286,7 +286,17 @@
         updateCounts(accounts.length, activeCount, rows.length);
 
         if (rows.length === 0) {
-            container.innerHTML = '<p class="text-spotifyGray col-span-full text-center py-10">Tidak ada akun yang cocok dengan pencarian / filter ini.</p>';
+            if (currentFilter === 'active' && !currentQuery && activeCount === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-spotifyCard border border-white/10 rounded-xl p-6 text-center">
+                        <p class="text-white font-bold text-base mb-1">Stok akun aktif hari ini sedang habis</p>
+                        <p class="text-spotifyGray text-sm mb-4">Semua ${accounts.length} akun hari ini berstatus Penuh / Limit. Silakan cek lagi saat update harian berikutnya.</p>
+                        <button onclick="setFilter('all')" class="bg-white text-black text-sm font-bold px-5 py-2 rounded-full hover:scale-[1.03] transition">Lihat Semua Akun (${accounts.length})</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '<p class="text-spotifyGray col-span-full text-center py-10">Tidak ada akun yang cocok dengan pencarian / filter ini.</p>';
+            }
             return;
         }
 
@@ -398,14 +408,19 @@
             }
         });
     }
+    let copyStatsLoading = false;
     async function loadCopyStats() {
+        if (copyStatsLoading) return;
+        copyStatsLoading = true;
         try {
             const res = await fetch('/api/copystats', { cache: 'no-store' });
             if (!res.ok) return;
             const j = await res.json();
             copyStats = j.stats || {};
             paintCopyStats();
-        } catch (e) {}
+        } catch (e) {} finally {
+            copyStatsLoading = false;
+        }
     }
 
     function trackCopy(item, kind) {
